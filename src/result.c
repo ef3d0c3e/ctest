@@ -1,5 +1,6 @@
-#include "signal.h"
 #define _GNU_SOURCE
+#include "memory.h"
+#include "signal.h"
 #include "result.h"
 #include <errno.h>
 #include <stdio.h>
@@ -7,7 +8,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-struct ctest_result
+struct ctest_result*
 __ctest_result_new()
 {
 	int messages = memfd_create("ctest_buffer_messages", 0);
@@ -28,12 +29,14 @@ __ctest_result_new()
 		fprintf(stderr, "Failed to create stderr buffer: %s", strerror(errsv));
 	}
 
-	return (struct ctest_result){
-		.messages = messages,
-		.stdout = out,
-		.stderr = err,
-		.sigdata = __ctest_signal_new(),
-	};
+	struct ctest_result *mem = mmap(NULL, sizeof(struct ctest_result), PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	mem->messages = messages;
+	mem->stdout = out;
+	mem->stderr = err;
+	mem->sigdata = __ctest_signal_new();
+	mem->arena = __ctest_mem_arena_new();
+	return mem;
 }
 
 void
@@ -46,6 +49,8 @@ __ctest_result_free(struct ctest_result* res)
 	if (res->stderr != -1)
 		close(res->stderr);
 	__ctest_signal_free(&res->sigdata);
+	__ctest_mem_arena_free(&res->arena);
+	munmap(res, sizeof(struct ctest_result));
 }
 
 void

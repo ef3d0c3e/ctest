@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <sys/user.h>
 
+struct ctest_result;
+
 struct ctest_mem_data
 {
 	uintptr_t allocator;
@@ -39,5 +41,12 @@ void __ctest_mem_add(struct ctest_mem_arena *arena, uintptr_t allocator, uintptr
  * 0 if no memory was allocated for that pointer
  */
 int __ctest_mem_delete(struct ctest_mem_arena *arena, uintptr_t deallocator, uintptr_t ptr, struct user_regs_struct regs);
+
+/**
+ * @brief Hooks called when a memory management function is called
+ *
+ * Currently this is called for malloc/realloc and free
+ */
+void __ctest_mem_hook(struct ctest_result *result, struct user_regs_struct regs);
 
 #endif // CTEST_MEMORY_H

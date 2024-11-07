@@ -1,6 +1,7 @@
 #ifndef CTEST_RESULT_H
 #define CTEST_RESULT_H
 
+#include "memory.h"
 #include "signal.h"
 #include <setjmp.h>
 
@@ -30,6 +31,10 @@ struct ctest_result
 	 */
 	struct ctest_signal_data sigdata;
 	/**
+	 * @brief Memory arena
+	 */
+	struct ctest_mem_arena arena;
+	/**
 	 * @brief longjmp address to recover from an intentional crash
 	 *
 	 * Should not be used if @ref sigdata.handling is 0
@@ -44,9 +49,11 @@ struct ctest_result
 };
 
 /**
- * @brief Creates a new test result structure
+ * @brief Initializes a new result into mmaped memory
+ *
+ * @returns A new mmap buffer containing a result
  */
-struct ctest_result
+struct ctest_result*
 __ctest_result_new();
 /**
  * @brief Deletes a test result structure

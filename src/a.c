@@ -7,9 +7,10 @@
 int main() {}
 
 CTEST_UNIT(test, {
-		volatile int len = 32;
 		printf(" -- START -- \n");
-		int *x = malloc(len);
+		int *x = 0;
+		x = malloc(32);
+		printf("Addr=%p\n", x);
 		free(x);
 		printf(" -- END -- \n");
 })
