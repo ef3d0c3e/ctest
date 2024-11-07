@@ -54,6 +54,6 @@ int __ctest_signal_crash(struct ctest_signal_data *sigdata);
  * @param result The @ref ctest_result data
  * @param signum The signal number
  */
-void __ctest_signal_handler(struct ctest_result *result, int signum);
+void __ctest_signal_handler(void (*handler)(int), struct ctest_result *result, int signum);
 
 #endif // CTEST_SIGNAL_H

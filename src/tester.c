@@ -16,30 +16,13 @@
 static struct ctest_result *_G_result;
 static void sighandler(int signum)
 {
-	printf("TID=%d\n", gettid());
-	__ctest_signal_handler(_G_result, signum);
+	__ctest_signal_handler(sighandler, _G_result, signum);
 }
 
 static void *thread_start(void *data)
 {
 	const struct ctest_unit *unit = data;
-	
-	struct ctest_result result = __ctest_result_new();
-	_G_result = &result;
-	// Run unit
-	if (!setjmp(result.jmp_end))
-	{
-		unit->fn(&result);
-	}
-	_G_result = NULL;
-	__ctest_result_print(&result);
-	__ctest_result_free(&result);
-	return NULL;
-}
 
-void	run_test(struct ctest_data *data, const struct ctest_unit *unit)
-{
-	printf("TID=%d\n", gettid());
 	// Set sighandlers
 	for (int i = 0; i < 32; ++i)
 	{
@@ -49,16 +32,31 @@ void	run_test(struct ctest_data *data, const struct ctest_unit *unit)
 		sigset_t block_mask;
 
 		sigemptyset (&block_mask);
-		sigaddset (&block_mask, i);
 		act.sa_mask = block_mask;
-		act.sa_flags = 0;
+		act.sa_flags = SA_RESETHAND | SA_NODEFER;
 		if (i != 0 && i != 9 && i != 19 && sigaction(i, &act, NULL) == -1)
 		{
 			int errsv = errno;
 			fprintf(stderr, "Failed to set signal handler for signal %d: %s\n", i, strerror(errsv));
 		}
 	}
+	
+	struct ctest_result result = __ctest_result_new();
+	_G_result = &result;
+	// Run unit
+	if (!setjmp(result.jmp_end))
+	{
+		unit->fn(&result);
+	}
+	_G_result = NULL;
+	// TODO: Raise errors on unhandled stdout/stderr content
+	__ctest_result_print(&result);
+	__ctest_result_free(&result);
+	return NULL;
+}
 
+void	run_test(struct ctest_data *data, const struct ctest_unit *unit)
+{
 	// TODO REDIR
  	pthread_t tid;
 	pthread_create(&tid, NULL, thread_start, (void*)unit);

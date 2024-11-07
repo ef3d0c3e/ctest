@@ -1,9 +1,12 @@
 #include "signal.h"
 #include "result.h"
+#include <errno.h>
 #include <execinfo.h>
 #include <setjmp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 struct ctest_signal_data __ctest_signal_new()
 {
@@ -27,12 +30,28 @@ int __ctest_signal_crash(struct ctest_signal_data *sigdata)
 	return sigdata->signum != -1;
 }
 
-void __ctest_signal_handler(struct ctest_result *result, int signum)
+void __ctest_signal_handler(void (*handler)(int), struct ctest_result *result, int signum)
 {
+	if (signum == SIGINT)
+	{
+		dprintf(result->messages, "WARN: Program halted unexpectedly with signal=%d\n", signum);
+		longjmp(result->jmp_end, 1);
+	}
+
 	result->sigdata.signum = signum;
 	if (result->sigdata.handling)
 	{
-		siglongjmp(result->jmp_recover, 1);
+		// Reinstall handler
+		struct sigaction sa;
+		sa.sa_handler = handler;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = SA_RESETHAND | SA_NODEFER;
+		if (sigaction(signum, &sa, NULL) == -1) {
+			int errsv = errno;
+			dprintf(result->messages, "CRITICAL: Failed to reinstall signal handler after recoverable signal %d: %s\n", signum, strerror(errsv));
+			longjmp(result->jmp_end, 1);
+		}
+		longjmp(result->jmp_recover, 1);
 	}
 	else
 	{
@@ -45,6 +64,6 @@ void __ctest_signal_handler(struct ctest_result *result, int signum)
 			dprintf(result->messages, " #%zu: %s\n", i, bt[i]);
 		}
 		free(bt);
-		siglongjmp(result->jmp_end, 1);
+		longjmp(result->jmp_end, 1);
 	}
 }

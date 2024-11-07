@@ -6,11 +6,11 @@
 int main() {}
 
 CTEST_UNIT(test, {
+	printf("1\n");
 	CTEST_CRASH("Program didn't crash", {
-		printf("Hello World\n");
 		*(int*)0 = 64;
 	})
-	sleep(1);
+	printf("2\n");
 	*(int*)0 = 64;
-	printf("Hello World\n");
+	printf("3\n");
 })
