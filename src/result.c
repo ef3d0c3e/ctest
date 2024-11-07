@@ -1,3 +1,4 @@
+#include "signal.h"
 #define _GNU_SOURCE
 #include "result.h"
 #include <string.h>
@@ -33,6 +34,7 @@ struct ctest_result __ctest_result_new()
 		.messages = messages,
 		.stdout = out,
 		.stderr = err,
+		.sigdata = __ctest_signal_new(),
 	};
 }
 
@@ -44,6 +46,7 @@ void __ctest_result_free(struct ctest_result *res)
 		close(res->stdout);
 	if (res->stderr != -1)
 		close(res->stderr);
+	__ctest_signal_free(&res->sigdata);
 }
 
 void __ctest_result_print(struct ctest_result *res)

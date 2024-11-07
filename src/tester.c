@@ -1,5 +1,7 @@
+#define _GNU_SOURCE
 #include "tester.h"
 #include "result.h"
+#include "signal.h"
 #include <errno.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -7,34 +9,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <threads.h>
+#include <execinfo.h>
+#include <unistd.h>
+#include <pthread.h>
 
 static struct ctest_result *_G_result;
 static void sighandler(int signum)
 {
-	_G_result->sigdata.signum = signum;
-	if (_G_result->sigdata.handling)
-		siglongjmp(_G_result->jmp_recover, 1);
-	else
-	{
-		// TODO: Backtrace
-		dprintf(_G_result->messages, "Program crashed unexpectedly: %d\n", signum);
-		siglongjmp(_G_result->jmp_end, 1);
-	}
+	printf("TID=%d\n", gettid());
+	__ctest_signal_handler(_G_result, signum);
 }
 
-void	run_test(struct ctest_data *data, const struct ctest_unit *unit)
+static void *thread_start(void *data)
 {
-	// Set sighandlers
-	for (int i = 0; i < 32; ++i)
-	{
-		if (i != 0 && i != 9 && i != 19 && signal(i, sighandler) == SIG_ERR)
-		{
-			int errsv = errno;
-			fprintf(stderr, "Failed to set signal handler for signal %d: %s\n", i, strerror(errsv));
-		}
-	}
-
-	// TODO REDIR
+	const struct ctest_unit *unit = data;
+	
 	struct ctest_result result = __ctest_result_new();
 	_G_result = &result;
 	// Run unit
@@ -45,4 +34,33 @@ void	run_test(struct ctest_data *data, const struct ctest_unit *unit)
 	_G_result = NULL;
 	__ctest_result_print(&result);
 	__ctest_result_free(&result);
+	return NULL;
+}
+
+void	run_test(struct ctest_data *data, const struct ctest_unit *unit)
+{
+	printf("TID=%d\n", gettid());
+	// Set sighandlers
+	for (int i = 0; i < 32; ++i)
+	{
+		struct sigaction act;
+		act.sa_handler = sighandler;
+		// https://www.gnu.org/software/libc/manual/html_node/Blocking-for-Handler.html
+		sigset_t block_mask;
+
+		sigemptyset (&block_mask);
+		sigaddset (&block_mask, i);
+		act.sa_mask = block_mask;
+		act.sa_flags = 0;
+		if (i != 0 && i != 9 && i != 19 && sigaction(i, &act, NULL) == -1)
+		{
+			int errsv = errno;
+			fprintf(stderr, "Failed to set signal handler for signal %d: %s\n", i, strerror(errsv));
+		}
+	}
+
+	// TODO REDIR
+ 	pthread_t tid;
+	pthread_create(&tid, NULL, thread_start, (void*)unit);
+	pthread_join(tid, NULL);
 }
