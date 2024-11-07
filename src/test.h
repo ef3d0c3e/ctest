@@ -7,10 +7,10 @@
 
 typedef int (*ctest_unit_fn)(struct ctest_result*);
 
-enum ctest_unit_flags : uint8_t
+enum ctest_unit_flags
 {
 	CTEST_FLAG_DEFAULT = 0,
-	CTEST_FLAG_REAL_MALLOC = 0b00000001,
+	CTEST_DISABLE_PTRACE = 0b00000001,
 };
 
 /**

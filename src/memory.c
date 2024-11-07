@@ -3,6 +3,7 @@
 #include <execinfo.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/mman.h>
 
 static void grow(struct ctest_mem_arena *arena)
 {
@@ -32,9 +33,6 @@ void __ctest_mem_arena_free(struct ctest_mem_arena* arena)
 		free(arena->data);
 }
 
-/**
- * @brief Adds a new allocation to the arena
- */
 void __ctest_mem_add(struct ctest_mem_arena *arena, uintptr_t allocator, uintptr_t ptr, struct user_regs_struct regs)
 {
 	if (arena->size >= arena->capacity)
@@ -43,6 +41,8 @@ void __ctest_mem_add(struct ctest_mem_arena *arena, uintptr_t allocator, uintptr
 	if (allocator == (uintptr_t)malloc)
 		size = regs.rdi;
 	else if (allocator == (uintptr_t)realloc)
+		size = regs.rsi;
+	else if (allocator == (uintptr_t)mmap)
 		size = regs.rsi;
 	else
 	{
@@ -58,9 +58,18 @@ void __ctest_mem_add(struct ctest_mem_arena *arena, uintptr_t allocator, uintptr
 	};
 	arena->data[size++] = data;
 }
-/**
- * @brief Deletes an allocation from the arena
- *
- * @param ptr Pointer to the allocated memory
- */
-int __ctest_mem_delete(struct ctest_mem_arena *arena, uintptr_t ptr);
+
+int __ctest_mem_delete(struct ctest_mem_arena *arena, uintptr_t deallocator, uintptr_t ptr, struct user_regs_struct regs)
+{
+	for (size_t i = 0; i < arena->size; ++i)
+	{
+		if (arena->data[i].ptr != ptr)
+			continue;
+
+		for (size_t j = i + 1; j < arena->size; ++j)
+			arena->data[j-1] = arena->data[j];
+		--arena->size;
+		return 1;
+	}
+	return 0;
+}
