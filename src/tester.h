@@ -5,11 +5,12 @@
 
 struct ctest_data
 {
-	const char *filter;
+	const char* filter;
 	size_t successes;
 	size_t failures;
 };
 
-void	run_test(struct ctest_data *data, const struct ctest_unit *unit);
+void
+run_test(struct ctest_data* data, const struct ctest_unit* unit);
 
 #endif // CTEST_TESTER_H

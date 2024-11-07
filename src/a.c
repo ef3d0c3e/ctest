@@ -1,16 +1,15 @@
 #include "test.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 int main() {}
 
 CTEST_UNIT(test, {
-	printf("1\n");
-	CTEST_CRASH("Program didn't crash", {
-		*(int*)0 = 64;
-	})
-	printf("2\n");
-	*(int*)0 = 64;
-	printf("3\n");
+		volatile int len = 32;
+		printf(" -- START -- \n");
+		int *x = malloc(len);
+		free(x);
+		printf(" -- END -- \n");
 })

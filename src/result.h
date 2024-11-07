@@ -16,7 +16,7 @@ struct ctest_result
 	 * This channel is printed at the end of the test.
 	 * If empty consider the test as successful.
 	 */
-	int	messages;
+	int messages;
 	/**
 	 * @brief The stdout redirect
 	 */
@@ -24,7 +24,7 @@ struct ctest_result
 	/**
 	 * @brief The stderr redirect
 	 */
-	int	stderr;
+	int stderr;
 	/**
 	 * @brief The signal data
 	 */
@@ -46,15 +46,18 @@ struct ctest_result
 /**
  * @brief Creates a new test result structure
  */
-struct ctest_result __ctest_result_new();
+struct ctest_result
+__ctest_result_new();
 /**
  * @brief Deletes a test result structure
  */
-void __ctest_result_free(struct ctest_result *res);
+void
+__ctest_result_free(struct ctest_result* res);
 
 /**
  * @brief Prints the content of the internal logging channel
  */
-void __ctest_result_print(struct ctest_result *res);
+void
+__ctest_result_print(struct ctest_result* res);
 
 #endif // CTEST_RESULT_H

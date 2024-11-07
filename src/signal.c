@@ -17,7 +17,7 @@ struct ctest_signal_data __ctest_signal_new()
 }
 void __ctest_signal_free(struct ctest_signal_data *sigdata)
 {
-
+	(void)sigdata;
 }
 
 void __ctest_signal_reset(struct ctest_signal_data *sigdata)
@@ -35,7 +35,8 @@ void __ctest_signal_handler(void (*handler)(int), struct ctest_result *result, i
 	if (signum == SIGINT)
 	{
 		dprintf(result->messages, "WARN: Program halted unexpectedly with signal=%d\n", signum);
-		longjmp(result->jmp_end, 1);
+		siglongjmp(result->jmp_end, 1);
+		// TODO: This does not gracefully shuts down the program, testers are still running
 	}
 
 	result->sigdata.signum = signum;
