@@ -1,18 +1,17 @@
-#include <sys/mman.h>
 #define _GNU_SOURCE
+#include "tester.h"
 #include "result.h"
 #include "signal.h"
-#include "tester.h"
 #include "tracer.h"
 #include <errno.h>
 #include <execinfo.h>
-#include <linux/ptrace.h>
 #include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <sys/reg.h>
 #include <sys/syscall.h>
@@ -33,6 +32,7 @@ sighandler(int signum)
 static void*
 child_start(const struct ctest_unit* unit, struct ctest_result* result)
 {
+	result->child_result = (uintptr_t)result;
 	if (!(unit->flags & CTEST_DISABLE_PTRACE))
 		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
 	else {
@@ -43,26 +43,28 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 			act.sa_handler = sighandler;
 			sigemptyset(&act.sa_mask);
 			act.sa_flags = SA_RESETHAND | SA_NODEFER;
-			if (i != 0 && i != 9 && i != 19 && sigaction(i, &act, NULL) == -1) {
+			if (i != 0 && i != 9 && i != 19 && i != SIGTRAP && sigaction(i, &act, NULL) == -1) {
 				int errsv = errno;
 				fprintf(
 				  stderr, "Failed to set signal handler for signal %d: %s\n", i, strerror(errsv));
+				exit(1);
 			}
 		}
 	}
 
 	// struct ctest_result result = __ctest_result_new();
+	write(0, " -- Child --\n", 13);
 	printf("Real result: %p\n", &result);
 	_G_result = result;
 	// Run unit
 	if (!setjmp(result->jmp_end)) {
 		unit->fn(result);
 	}
+	write(0, " -- Child --\n", 13);
 	_G_result = NULL;
 	// TODO: Raise errors on unhandled stdout/stderr content
 	__ctest_result_print(result);
 	__ctest_result_free(result);
-	exit(1);
 	return NULL;
 }
 
@@ -75,12 +77,10 @@ run_test(struct ctest_data* data, const struct ctest_unit* unit)
 	if (pid > 0) {
 		if (!(unit->flags & CTEST_DISABLE_PTRACE))
 			__ctest_tracer_start(pid, result);
-		else {
-			int status;
-			if (waitpid(pid, &status, 0) < 0) {
-				perror("waitpid()");
-				exit(1);
-			}
+		int status;
+		if (waitpid(pid, &status, 0) < 0) {
+			perror("waitpid()");
+			exit(1);
 		}
 	} else {
 		child_start(unit, result);

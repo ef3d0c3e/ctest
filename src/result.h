@@ -46,6 +46,21 @@ struct ctest_result
 	 * This is used when the test crashes unexpectedly
 	 */
 	jmp_buf jmp_end;
+
+	/**
+	 * @brief Address of this struct in the child process
+	 */
+	uintptr_t child_result;
+
+	/**
+	 * @brief Message accessible from child/parent
+	 *
+	 * Used to send custom commands to hooks
+	 */
+	union
+	{
+		union ctest_mem_msg mem;
+	} message;
 };
 
 /**

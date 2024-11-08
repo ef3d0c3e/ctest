@@ -4,13 +4,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-int main() {}
-
 CTEST_UNIT(test, {
-		printf(" -- START -- \n");
-		int *x = 0;
-		x = malloc(32);
-		printf("Addr=%p\n", x);
-		free(x);
-		printf(" -- END -- \n");
+	printf(" -- START -- \n");
+	printf("Addr=%p\n", malloc(64));
+	printf(" -- END -- \n");
 })
