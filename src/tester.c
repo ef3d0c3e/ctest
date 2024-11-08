@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "tester.h"
+#include "messages.h"
 #include "result.h"
 #include "signal.h"
 #include "tracer.h"
@@ -33,9 +34,7 @@ static void*
 child_start(const struct ctest_unit* unit, struct ctest_result* result)
 {
 	result->child_result = (uintptr_t)result;
-	if (!(unit->flags & CTEST_DISABLE_PTRACE))
-		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-	else {
+	if (unit->flags & CTEST_DISABLE_PTRACE) {
 		// Set sighandlers
 		for (int i = 0; i < 32; ++i) {
 			// https://www.gnu.org/software/libc/manual/html_node/Blocking-for-Handler.html
@@ -57,6 +56,9 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 	printf("Real result: %p\n", &result);
 	_G_result = result;
 	// Run unit
+	
+	if (!(unit->flags & CTEST_DISABLE_PTRACE))
+		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
 	if (!setjmp(result->jmp_end)) {
 		unit->fn(result);
 	}
@@ -64,23 +66,26 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 	_G_result = NULL;
 	// TODO: Raise errors on unhandled stdout/stderr content
 	__ctest_result_print(result);
-	__ctest_result_free(result);
 	return NULL;
 }
 
 void
 run_test(struct ctest_data* data, const struct ctest_unit* unit)
 {
+	__ctest_colors_set(1);
 	struct ctest_result* result = __ctest_result_new();
 	// TODO: Redirect the child's stdout/stderr
 	pid_t pid = fork();
 	if (pid > 0) {
 		if (!(unit->flags & CTEST_DISABLE_PTRACE))
 			__ctest_tracer_start(pid, result);
-		int status;
-		if (waitpid(pid, &status, 0) < 0) {
-			perror("waitpid()");
-			exit(1);
+		else
+		{
+			int status;
+			if (waitpid(pid, &status, 0) < 0) {
+				perror("waitpid()");
+				exit(1);
+			}
 		}
 	} else {
 		child_start(unit, result);

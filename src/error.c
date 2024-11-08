@@ -1,5 +1,6 @@
 #include "error.h"
 #include "result.h"
+#include "messages.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -60,10 +61,16 @@ static void reg_eflags(FILE *stream, uintptr_t efl)
 				len += snprintf(buf+len, sizeof(buf)-len, "OF ");
 				break;
 			case 12:
-				len += snprintf(buf+len, sizeof(buf)-len, "IOPL ");
+				len += snprintf(buf+len, sizeof(buf)-len, "IOPL(12) ");
+				break;
+			case 13:
+				len += snprintf(buf+len, sizeof(buf)-len, "IOPL(13) ");
 				break;
 			case 14:
 				len += snprintf(buf+len, sizeof(buf)-len, "NT "); 
+				break;
+			case 15:
+				len += snprintf(buf+len, sizeof(buf)-len, "MD "); 
 				break;
 			case 16:
 				len += snprintf(buf+len, sizeof(buf)-len, "RF ");
@@ -82,6 +89,9 @@ static void reg_eflags(FILE *stream, uintptr_t efl)
 				break;
 			case 21:
 				len += snprintf(buf+len, sizeof(buf)-len, "ID ");
+				break;
+			case 31:
+				len += snprintf(buf+len, sizeof(buf)-len, "AI ");
 				break;
 		}
 	}
@@ -110,15 +120,15 @@ __ctest_raise_parent_error(struct ctest_result* result,
                            const char* fmt,
                            ...)
 {
-	fprintf(stderr, " --[ CTest caught an error ]--\n");
-	
-	fprintf(stderr, " -> Register dump:\n");
-	print_registers(stderr, regs);
-
-	fprintf(stderr, " -> Stacktrace:\n");
+	char *  msg = __ctest_colorize(CTEST_COLOR_RED, " --[ CTest test failed ]--");
+	fprintf(stderr, "%s\nWHAT: ", msg);
+	free(msg);
 
 	va_list args;
 	va_start(args, fmt);
 	vfprintf(stderr, fmt, args);
 	va_end(args);
+	
+	fprintf(stderr, " * Register dump:\n");
+	print_registers(stderr, regs);
 }

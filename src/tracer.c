@@ -112,7 +112,7 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 			continue;
 		else if (incoming_mem_hook)
 		{
-			printf("-> Incoming: %p\n", result->message_in.mem.malloc.ptr);
+			printf(" * Incoming: %p\n", result->message_in.mem.malloc.ptr);
 			__ctest_mem_add(result);
 			incoming_mem_hook = 0;
 		}

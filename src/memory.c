@@ -9,6 +9,7 @@
 #include <sys/ipc.h>
 #include <sys/mman.h>
 #include <sys/shm.h>
+#include <unistd.h>
 
 static void
 grow(struct ctest_mem_arena* arena)
@@ -130,6 +131,7 @@ malloc_hook(struct ctest_result* result)
 		result->arena.in_memory_hook = 0;
 		return NULL;
 	}
+
 	void* ptr = malloc(size);
 	if (!ptr) {
 		write(result->messages, "malloc() failed unexpectedly\n", 29);
@@ -160,6 +162,7 @@ void* print_stacktrace_exit(struct ctest_result* result)
 	const int size = backtrace(bt, 64);
 	char **lines = backtrace_symbols(bt, size);
 
+	fprintf(stderr, " * Stacktrace:\n");
 	for (int i = 0; i < size; ++i)
 	{
 		fprintf(stderr, " #%d: %s\n", i, lines[i]);
@@ -189,22 +192,26 @@ __ctest_mem_hook(struct ctest_result* result, struct user_regs_struct* regs)
 		struct ctest_mem_data *data = __ctest_mem_find(result, ptr);
 		if (!data)
 		{
-			fprintf(stderr, "%s: free(%p): Pointer was not found in heap\n", __FUNCTION__, (void*)result->message_in.mem.free.ptr);
-			exit(1);
+			__ctest_raise_parent_error(result, regs, "Free on unknown pointer\n");
+			regs->rip = (uintptr_t)print_stacktrace_exit;
+			regs->rdi = (uintptr_t)result->child_result;
 		} else if (data->allocator != (uintptr_t)malloc)
 		{
-			fprintf(stderr, "%s: free(%p): Pointer was not allocated with malloc()\n", __FUNCTION__, (void*)result->message_in.mem.free.ptr);
-			exit(1);
+			__ctest_raise_parent_error(result, regs, "Free on pointer not allocated by malloc()\n");
+			regs->rip = (uintptr_t)print_stacktrace_exit;
+			regs->rdi = (uintptr_t)result->child_result;
 		}
 		else if (data->freed)
 		{
-			__ctest_raise_parent_error(result, regs, "");
+			__ctest_raise_parent_error(result, regs, "Double free detected in program\n");
 			regs->rip = (uintptr_t)print_stacktrace_exit;
 			regs->rdi = (uintptr_t)result->child_result;
-			return 1;
 		}
-		regs->rip = (uintptr_t)free_hook;
-		regs->rdi = (uintptr_t)result->child_result;
+		else
+		{
+			regs->rip = (uintptr_t)free_hook;
+			regs->rdi = (uintptr_t)result->child_result;
+		}
 	}
 	return 1;
 }
