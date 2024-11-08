@@ -1,4 +1,5 @@
 #include "memory.h"
+#include "error.h"
 #include "tester.h"
 #include <dlfcn.h>
 #include <execinfo.h>
@@ -62,21 +63,6 @@ __ctest_mem_add(struct ctest_result* result)
 		if (result->message_in.mem.free.ptr == 0)
 			return;
 		struct ctest_mem_data *data = __ctest_mem_find(result, result->message_in.mem.free.ptr);
-		// TODO: Raise error api + print backtrace/registers
-		if (!data)
-		{
-			fprintf(stderr, "%s: free(%p): Pointer was not found in heap\n", __FUNCTION__, (void*)result->message_in.mem.free.ptr);
-			exit(1);
-		} else if (data->allocator != (uintptr_t)malloc)
-		{
-			fprintf(stderr, "%s: free(%p): Pointer was not allocated with malloc()\n", __FUNCTION__, (void*)result->message_in.mem.free.ptr);
-			exit(1);
-		}
-		else if (data->freed)
-		{
-			fprintf(stderr, "%s: free(%p): Pointer was already deallocated\n", __FUNCTION__, (void*)result->message_in.mem.free.ptr);
-			exit(1);
-		}
 		data->freed = 1;
 
 	} else {
@@ -111,7 +97,6 @@ __ctest_mem_find(struct ctest_result* result,
 {
 	for (size_t i = 0; i < result->arena.size; ++i)
 	{
-		printf("WANT=%p FIND=%p\n", (void*)ptr, (void*)result->arena.data[i].ptr);
 		if (result->arena.data[i].ptr == ptr)
 			return &result->arena.data[i];
 	}
@@ -183,6 +168,23 @@ __ctest_mem_hook(struct ctest_result* result, struct user_regs_struct* regs)
 	} else if (regs->rip == (uintptr_t)free) {
 		result->message_out.mem.allocator = (uintptr_t)free;
 		result->message_out.mem.free.regs = *regs;
+		uintptr_t ptr = regs->rdi;
+		struct ctest_mem_data *data = __ctest_mem_find(result, ptr);
+		if (!data)
+		{
+			fprintf(stderr, "%s: free(%p): Pointer was not found in heap\n", __FUNCTION__, (void*)result->message_in.mem.free.ptr);
+			exit(1);
+		} else if (data->allocator != (uintptr_t)malloc)
+		{
+			fprintf(stderr, "%s: free(%p): Pointer was not allocated with malloc()\n", __FUNCTION__, (void*)result->message_in.mem.free.ptr);
+			exit(1);
+		}
+		else if (data->freed)
+		{
+			__ctest_raise_parent_error(result, regs, "OK");
+			//fprintf(stderr, "%s: free(%p): Pointer was already deallocated\n", __FUNCTION__, (void*)result->message_in.mem.free.ptr);
+			exit(1);
+		}
 		regs->rip = (uintptr_t)free_hook;
 		regs->rdi = (uintptr_t)result->child_result;
 	}
