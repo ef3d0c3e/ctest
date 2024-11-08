@@ -13,40 +13,45 @@ struct ctest_mem_data
 	uintptr_t ptr;
 	size_t size;
 	struct user_regs_struct regs;
+	int freed;
 	// void *backtrace[16];
 };
 
 /**
  * @brief Message sent via result to child to get information about current call
  *
- * @see ctest_result.message
+ * @see ctest_result.message_out
  */
-union ctest_mem_msg
+union ctest_mem_msg_out
 {
 	struct
 	{
-		// RDI
-		size_t size;
-	} malloc;
-
-	struct
-	{
-		// RDI
-		uintptr_t ptr;
-		// RSI
-		size_t size;
-	} realloc;
-
-	struct
-	{
-		// RDI
-		uintptr_t ptr;
-	} free;
+		uintptr_t allocator;
+		struct
+		{
+			struct user_regs_struct regs;
+		} malloc, realloc, free;
+	};
 };
 
-struct ctest_mem_allocator_settings
+/**
+ * @brief Message received via result from child to get results about call
+ *
+ * @see ctest_result.message_in
+ */
+union ctest_mem_msg_in
 {
-	union
+	struct
+	{
+		uintptr_t ptr;
+	} malloc, realloc, free;
+};
+
+// TODO...
+union ctest_mem_allocator_settings
+{
+	///< Settings for malloc/realloc
+	struct
 	{
 		/**
 		 * @param Number of malloc() calls that should return NULL per million calls
@@ -76,7 +81,7 @@ struct ctest_mem_arena
 	/**
 	 * @param Settings for malloc
 	 */
-	struct ctest_mem_allocator_settings malloc_settings;
+	union ctest_mem_allocator_settings malloc_settings;
 };
 
 struct ctest_mem_arena
@@ -85,13 +90,10 @@ void
 __ctest_mem_arena_free(struct ctest_mem_arena* arena);
 
 /**
- * @brief Adds a new allocation to the arena
+ * @brief Adds a new allocation/deallocation to the arena
  */
 void
-__ctest_mem_add(struct ctest_mem_arena* arena,
-                uintptr_t allocator,
-                uintptr_t ptr,
-                struct user_regs_struct regs);
+__ctest_mem_add(struct ctest_result* result);
 
 /**
  * @brief Deletes an allocation from the arena
@@ -108,11 +110,35 @@ __ctest_mem_delete(struct ctest_mem_arena* arena,
                    struct user_regs_struct regs);
 
 /**
+ * @brief Finds an allocated memory buffer from the arena
+ *
+ * @param result The result structure
+ * @param ptr The pointer to find
+ *
+ * @returns The memory data associated with ptr, NULL if not found
+ */
+struct ctest_mem_data*
+__ctest_mem_find(struct ctest_result* result,
+                   uintptr_t ptr);
+
+/**
+ * @brief Prints the memory state to a file descriptor
+ *
+ * @param result The result structure
+ * @param fd File descriptor to print to
+ */
+void
+__ctest_mem_print(struct ctest_result* result,
+                   int fd);
+
+/**
  * @brief Hooks called when a memory management function is called
  *
  * Currently this is called for malloc/realloc and free
+ *
+ * @returns 1 If message_in needs to be processed next step
  */
-void
+int
 __ctest_mem_hook(struct ctest_result* result, struct user_regs_struct* regs);
 
 #endif // CTEST_MEMORY_H

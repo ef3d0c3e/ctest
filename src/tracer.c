@@ -57,6 +57,8 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 
 	printf("Hooked result: %p\n", (void*)result);
 	printf("Shutdown jmp : %p\n", (void*)result->jmp_end);
+
+	int incoming_mem_hook = 0;
 	while (1) {
 		if (ptrace(PTRACE_SINGLESTEP, pid, 0, 0) < 0) {
 			perror("ptrace(SINGLESTEP)");
@@ -105,6 +107,15 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 				break;
 			}
 		}
+		// Process memory hooks results
+		if (result->arena.in_memory_hook)
+			continue;
+		else if (incoming_mem_hook)
+		{
+			printf("-> Incoming: %p\n", result->message_in.mem.malloc.ptr);
+			__ctest_mem_add(result);
+			incoming_mem_hook = 0;
+		}
 
 		struct user_regs_struct regs;
 		if (ptrace(PTRACE_GETREGS, pid, 0, &regs) < 0) {
@@ -115,9 +126,10 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 		// Memory management
 		if (regs.rip == (uintptr_t)malloc || regs.rip == (uintptr_t)realloc ||
 		    regs.rip == (uintptr_t)free) {
-			__ctest_mem_hook(result, &regs);
+			incoming_mem_hook = __ctest_mem_hook(result, &regs);
 
 			ptrace(PTRACE_SETREGS, pid, 0, &regs);
 		}
 	}
+	__ctest_mem_print(result, 1);
 }

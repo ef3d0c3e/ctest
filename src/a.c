@@ -5,7 +5,9 @@
 #include <unistd.h>
 
 CTEST_UNIT(test, {
-	printf(" -- START -- \n");
-	printf("Addr=%p\n", malloc(64));
-	printf(" -- END -- \n");
+	write(0, " -- START -- \n", 14);
+	void *ptr = malloc(64);
+	free(ptr);
+	free(ptr);
+	write(0, " -- END -- \n", 12);
 })

@@ -53,14 +53,25 @@ struct ctest_result
 	uintptr_t child_result;
 
 	/**
-	 * @brief Message accessible from child/parent
+	 * @brief Messages parent -> child
 	 *
 	 * Used to send custom commands to hooks
 	 */
 	union
 	{
-		union ctest_mem_msg mem;
-	} message;
+		union ctest_mem_msg_out mem;
+	} message_out;
+
+	/**
+	 * @brief Messages child -> parent
+	 *
+	 * Used to receive custom commands from hooks
+	 */
+	union
+	{
+		union ctest_mem_msg_in mem;
+	} message_in;
+
 };
 
 /**

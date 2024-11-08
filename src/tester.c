@@ -72,7 +72,7 @@ void
 run_test(struct ctest_data* data, const struct ctest_unit* unit)
 {
 	struct ctest_result* result = __ctest_result_new();
-	// TODO REDIR
+	// TODO: Redirect the child's stdout/stderr
 	pid_t pid = fork();
 	if (pid > 0) {
 		if (!(unit->flags & CTEST_DISABLE_PTRACE))
