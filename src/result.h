@@ -48,6 +48,10 @@ struct ctest_result
 	jmp_buf jmp_end;
 
 	/**
+	 * @brief The child's pid in ptrace mpde
+	 */
+	pid_t child;
+	/**
 	 * @brief Address of this struct in the child process
 	 */
 	uintptr_t child_result;
@@ -71,7 +75,6 @@ struct ctest_result
 	{
 		union ctest_mem_msg_in mem;
 	} message_in;
-
 };
 
 /**

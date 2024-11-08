@@ -153,6 +153,23 @@ free_hook(struct ctest_result* result)
 	result->arena.in_memory_hook = 0;
 }
 
+
+void* print_stacktrace_exit(struct ctest_result* result)
+{
+	void *bt[64];
+	const int size = backtrace(bt, 64);
+	char **lines = backtrace_symbols(bt, size);
+
+	for (int i = 0; i < size; ++i)
+	{
+		fprintf(stderr, " #%d: %s\n", i, lines[i]);
+	}
+	free(lines);
+
+	// TODO
+	longjmp(result->jmp_end, 1);
+}
+
 int
 __ctest_mem_hook(struct ctest_result* result, struct user_regs_struct* regs)
 {
@@ -181,9 +198,10 @@ __ctest_mem_hook(struct ctest_result* result, struct user_regs_struct* regs)
 		}
 		else if (data->freed)
 		{
-			__ctest_raise_parent_error(result, regs, "OK");
-			//fprintf(stderr, "%s: free(%p): Pointer was already deallocated\n", __FUNCTION__, (void*)result->message_in.mem.free.ptr);
-			exit(1);
+			__ctest_raise_parent_error(result, regs, "");
+			regs->rip = (uintptr_t)print_stacktrace_exit;
+			regs->rdi = (uintptr_t)result->child_result;
+			return 1;
 		}
 		regs->rip = (uintptr_t)free_hook;
 		regs->rdi = (uintptr_t)result->child_result;
