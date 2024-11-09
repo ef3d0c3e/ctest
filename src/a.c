@@ -5,8 +5,8 @@
 #include <unistd.h>
 
 CTEST_UNIT(test, {
-	write(0, " -- START -- \n", 14);
-	char *buf = 0;
-	buf[126] = 0;
-	write(0, " -- END -- \n", 12);
+	char s[255];
+	s[0] = 1;
+	s[1] = 2;
+	s[2] = 3;
 })

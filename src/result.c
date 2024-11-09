@@ -35,6 +35,7 @@ __ctest_result_new(const struct ctest_unit* unit)
 	mem->messages = messages;
 	mem->stdout = out;
 	mem->stderr = err;
+	mem->in_function = 0;
 	mem->sigdata = __ctest_signal_new();
 	mem->mem = __ctest_mem_new();
 	return mem;

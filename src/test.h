@@ -50,6 +50,7 @@ struct ctest_unit
 	int CTEST_CONCAT(CTEST_CONCAT(__ctest_function_, __NAME),                                    \
 	                 __ID)(struct ctest_result * __ctest_result)                                 \
 	{                                                                                            \
+		__ctest_result->in_function = 1;                                                         \
 		{                                                                                        \
 			__VA_ARGS__;                                                                         \
 		}                                                                                        \

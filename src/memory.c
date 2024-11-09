@@ -70,6 +70,7 @@ free_hook(struct ctest_result* result)
 static void*
 print_stacktrace_exit(struct ctest_result* result)
 {
+	// TODO: Use libunwind instead
 	void* bt[64];
 	const int size = backtrace(bt, 64);
 	char** lines = backtrace_symbols(bt, size);

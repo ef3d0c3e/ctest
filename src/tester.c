@@ -58,6 +58,7 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 	if (!setjmp(result->jmp_end)) {
 		unit->fn(result);
 	}
+	result->in_function = 0;
 	write(0, " -- Child --\n", 13);
 	_G_result = NULL;
 	// TODO: Raise errors on unhandled stdout/stderr content
@@ -75,7 +76,7 @@ run_test(struct ctest_data* data, const struct ctest_unit* unit)
 	if (pid > 0) {
 		result->child = pid;
 		if (!(unit->flags & CTEST_DISABLE_PTRACE))
-			__ctest_tracer_start(pid, result);
+			__ctest_tracer_start(result);
 		else {
 			int status;
 			if (waitpid(pid, &status, 0) < 0) {

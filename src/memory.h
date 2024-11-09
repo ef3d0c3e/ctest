@@ -81,6 +81,17 @@ struct ctest_mem
 	union ctest_mem_allocator_settings malloc_settings;
 };
 
+struct ctest_mem_access
+{
+	int is_read;
+	int is_write;
+
+	/**
+	 * @brief Memory address accessed in the child's memory space
+	 */
+	uintptr_t address;
+};
+
 /**
  * @brief Creates a new memory structure
  */

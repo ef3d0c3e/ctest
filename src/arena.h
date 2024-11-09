@@ -37,7 +37,6 @@ struct ctest_mem_allocation
 };
 
 // TODO: Store secondary table of deallocated memory to check for use after free and double free
-// FIXME: Split into memory/arena
 /**
  * @brief The memory allocation arena
  */

@@ -203,4 +203,6 @@ __ctest_raise_parent_error(struct ctest_result* result,
     }
 
     cs_close(&handle);
+
+	// TODO: Use libunwind for stacktrace
 }
