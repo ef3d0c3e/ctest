@@ -2,6 +2,7 @@
 #include "error.h"
 #include "memory.h"
 #include <asm/prctl.h>
+#include <asm/unistd_64.h>
 #include <capstone/capstone.h>
 #include <errno.h>
 #include <stdint.h>
@@ -173,7 +174,7 @@ process_insn(struct ctest_result* result, struct user_regs_struct* regs)
 			//(op->access & CS_AC_WRITE);
 			uintptr_t address = calculate_effective_address(result->child, op, regs);
 			//if (is_address_mapped(result->child, address))
-			//	printf("Accessed memory: %p\n", address);
+				printf("Accessed memory: %p [%d]\n", address, is_address_mapped(result->child, address));
 			//  Populate other memory access details here
 		}
 				printf("0x%" PRIx64 ": %s %s\n", insn[i].address,
@@ -266,6 +267,10 @@ __ctest_tracer_start(struct ctest_result* result)
 		// Process insn
 		process_insn(result, &regs);
 
+		if (regs.rip == (uintptr_t)brk || regs.rip == (uintptr_t)sbrk)
+		{
+			printf("BRK\n\n");
+		}
 		// Memory management
 		if (regs.rip == (uintptr_t)malloc || regs.rip == (uintptr_t)realloc ||
 		    regs.rip == (uintptr_t)free) {
