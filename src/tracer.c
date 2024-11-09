@@ -79,11 +79,11 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 			}
 		}
 		// Wait for the current memory hook to finish
-		if (result->arena.in_hook)
+		if (result->mem.in_hook)
 			continue;
 		// Process memory hooks results
 		else if (incoming_mman) {
-			__ctest_mem_add(result);
+			__ctest_mem_arena_add(result);
 			incoming_mman = 0;
 		}
 
@@ -93,41 +93,6 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 			exit(EXIT_FAILURE);
 		}
 
-		/*
-		csh handle;
-		cs_insn* insn;
-		size_t count;
-
-		if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
-			exit(1); // error handling
-
-		unsigned long addr =
-		  ptrace(PTRACE_PEEKUSER,
-		         pid,
-		         8 * RIP,
-		         0);      // Assuming RIP is the instruction pointer register for x86_64
-		uint8_t code[15]; // x86 instructions can be up to 15 bytes
-		for (int i = 0; i < 15; i++) {
-			code[i] = ptrace(PTRACE_PEEKTEXT, pid, addr + i, 0) & 0xff;
-		}
-
-		count = cs_disasm(handle, code, sizeof(code), addr, 1, &insn);
-		if (count > 0) {
-			// Check if insn->id (instruction ID) involves memory read or write
-			for (size_t i = 0; i < count; i++) {
-				if (insn[i].id == X86_INS_MOV || insn[i].id == X86_INS_MOVSX ||
-				    insn[i].id == X86_INS_MOVZX || insn[i].id == X86_INS_LEA ||
-				    insn[i].id == X86_INS_ADD ||
-				    insn[i].id == X86_INS_SUB) {
-					//fprintf(stdout, "Memory access:\n");
-					//TODO
-				}
-			}
-			cs_free(insn, count);
-		}
-		cs_close(&handle);
-		*/
-
 		// Memory management
 		if (regs.rip == (uintptr_t)malloc || regs.rip == (uintptr_t)realloc ||
 		    regs.rip == (uintptr_t)free) {
@@ -136,5 +101,6 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 			ptrace(PTRACE_SETREGS, pid, 0, &regs);
 		}
 	}
-	__ctest_mem_print(result, 1);
+	// Print the arena
+	__ctest_mem_arena_print(result, 1);
 }

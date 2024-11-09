@@ -36,7 +36,7 @@ __ctest_result_new(const struct ctest_unit* unit)
 	mem->stdout = out;
 	mem->stderr = err;
 	mem->sigdata = __ctest_signal_new();
-	mem->arena = __ctest_mem_arena_new();
+	mem->mem = __ctest_mem_new();
 	return mem;
 }
 
@@ -50,7 +50,7 @@ __ctest_result_free(struct ctest_result* res)
 	if (res->stderr != -1)
 		close(res->stderr);
 	__ctest_signal_free(&res->sigdata);
-	__ctest_mem_arena_free(&res->arena);
+	__ctest_mem_free(&res->mem);
 	munmap(res, sizeof(struct ctest_result));
 }
 

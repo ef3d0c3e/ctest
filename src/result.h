@@ -35,9 +35,9 @@ struct ctest_result
 	 */
 	struct ctest_signal_data sigdata;
 	/**
-	 * @brief Memory arena
+	 * @brief Memory data
 	 */
-	struct ctest_mem_arena arena;
+	struct ctest_mem mem;
 	/**
 	 * @brief longjmp address to recover from an intentional crash
 	 *

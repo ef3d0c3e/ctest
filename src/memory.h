@@ -1,21 +1,9 @@
 #ifndef CTEST_MEMORY_H
 #define CTEST_MEMORY_H
 
-#include <stdint.h>
-#include <sys/user.h>
-#include <unistd.h>
+#include "arena.h"
 
 struct ctest_result;
-
-struct ctest_mem_data
-{
-	uintptr_t allocator;
-	uintptr_t ptr;
-	size_t size;
-	struct user_regs_struct regs;
-	int freed;
-	// void *backtrace[16];
-};
 
 /**
  * @brief Message sent via result to child to get information about current call
@@ -48,35 +36,43 @@ union ctest_mem_msg_in
 };
 
 // TODO...
+/**
+ * @brief Experimental settings for allocators
+ *
+ * @note This is a work in progress, it does nothing currently
+ */
 union ctest_mem_allocator_settings
 {
 	///< Settings for malloc/realloc
 	struct
 	{
 		/**
-		 * @param Number of malloc() calls that should return NULL per million calls
+		 * @brief Number of malloc() calls that should return NULL per million calls
 		 *
 		 * @note If calling the real malloc does fail while the tester did not want it to fail,
 		 * the program will crash
 		 */
 		size_t failures_per_million;
 		/**
-		 * @param malloc() will fail when the requested size is zero
+		 * @brief malloc() will fail when the requested size is zero
 		 */
 		int fail_on_zero;
 	} malloc;
 };
 
-// TODO: Store secondary table of deallocated memory to check for use after free and double free
-// FIXME: Split into memory/arena
-struct ctest_mem_arena
+/**
+ * @brief The memory structure
+ */
+struct ctest_mem
 {
-	struct ctest_mem_data* data;
-	size_t size;
-	size_t capacity;
 	/**
-	 * Flag set to 1 when a memory hook is running.
-	 * So as to avoid recursive infinite loop.
+	 * @brief The allocation arena
+	 */
+	struct ctest_mem_arena arena;
+	/**
+	 * @brief Flag set to 1 when a memory hook is running, so as to avoid recursive infinite loop.
+	 *
+	 * @note It is the hook's duty to set this flag to 0 when a hook finishes
 	 */
 	int in_hook;
 	/**
@@ -85,50 +81,15 @@ struct ctest_mem_arena
 	union ctest_mem_allocator_settings malloc_settings;
 };
 
-struct ctest_mem_arena
-__ctest_mem_arena_new();
-void
-__ctest_mem_arena_free(struct ctest_mem_arena* arena);
+/**
+ * @brief Creates a new memory structure
+ */
+struct ctest_mem __ctest_mem_new();
 
 /**
- * @brief Adds a new allocation/deallocation to the arena
+ * @brief Deletes a memory structure
  */
-void
-__ctest_mem_add(struct ctest_result* result);
-
-/**
- * @brief Deletes an allocation from the arena
- *
- * @param ptr Pointer to the allocated memory
- *
- * @returns 1 If deallocation succesfully finished
- * 0 if no memory was allocated for that pointer
- */
-int
-__ctest_mem_delete(struct ctest_mem_arena* arena,
-                   uintptr_t deallocator,
-                   uintptr_t ptr,
-                   struct user_regs_struct regs);
-
-/**
- * @brief Finds an allocated memory buffer from the arena
- *
- * @param result The result structure
- * @param ptr The pointer to find
- *
- * @returns The memory data associated with ptr, NULL if not found
- */
-struct ctest_mem_data*
-__ctest_mem_find(struct ctest_result* result, uintptr_t ptr);
-
-/**
- * @brief Prints the memory state to a file descriptor
- *
- * @param result The result structure
- * @param fd File descriptor to print to
- */
-void
-__ctest_mem_print(struct ctest_result* result, int fd);
+void __ctest_mem_free(struct ctest_mem* mem);
 
 /**
  * @brief Hooks called when a memory access is made

@@ -1,12 +1,14 @@
 #include "error.h"
 #include "messages.h"
 #include "result.h"
+#include <capstone/capstone.h>
 #include <signal.h>
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/ptrace.h>
+#include <sys/reg.h>
 #include <sys/user.h>
 #include <unistd.h>
 
@@ -160,8 +162,45 @@ __ctest_raise_parent_error(struct ctest_result* result,
 	va_end(args);
 
 	// Print registers
-	char* dump = __ctest_colorize(CTEST_COLOR_BLUE, " * Register dump:");
-	fprintf(stderr, "%s\n", dump);
-	free(dump);
+	fprintf(stderr, "%s * Register dump:%s\n", __ctest_color(CTEST_COLOR_BLUE), __ctest_color(CTEST_COLOR_RESET));
 	print_registers(stderr, regs);
+
+	// Output opcodes
+	const size_t code_size = 32;
+	uint8_t code[code_size];
+
+	unsigned long addr = ptrace(PTRACE_PEEKUSER, result->child, 8 * RIP, 0);
+	for(size_t i = 0; i < code_size; i++)
+		code[i] = ptrace(PTRACE_PEEKTEXT, result->child, addr + i, 0) & 0xff;
+
+    csh handle;
+    cs_insn *insn;
+    size_t count;
+
+    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
+        fprintf(stderr, "Failed to initialize Capstone engine\n");
+        return;
+    }
+
+	fprintf(stderr, "%s * ASM dump:%s\n", __ctest_color(CTEST_COLOR_BLUE), __ctest_color(CTEST_COLOR_RESET));
+    count = cs_disasm(handle, code, code_size, regs->rip, 0, &insn);
+    if (count > 0) {
+        for (size_t i = 0; i < count; i++) {
+			if (i == 0)
+			{
+				printf("%s0x%" PRIx64 "%s: %s%s %s%s <--\n", __ctest_color(CTEST_COLOR_GREEN), insn[i].address, __ctest_color(CTEST_COLOR_RESET),
+						__ctest_color(CTEST_COLOR_RED), insn[i].mnemonic, insn[i].op_str, __ctest_color(CTEST_COLOR_RESET));
+			}
+			else
+			{
+				printf("%s0x%" PRIx64 "%s: %s %s\n", __ctest_color(CTEST_COLOR_GREEN), insn[i].address, __ctest_color(CTEST_COLOR_RESET),
+						insn[i].mnemonic, insn[i].op_str);
+			}
+        }
+        cs_free(insn, count);
+    } else {
+        fprintf(stderr, "Failed to disassemble given code\n");
+    }
+
+    cs_close(&handle);
 }
