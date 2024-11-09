@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 struct ctest_result*
-__ctest_result_new()
+__ctest_result_new(const struct ctest_unit* unit)
 {
 	int messages = memfd_create("ctest_buffer_messages", 0);
 	if (messages == -1) {
@@ -31,6 +31,7 @@ __ctest_result_new()
 
 	struct ctest_result *mem = mmap(NULL, sizeof(struct ctest_result), PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	mem->unit = unit;
 	mem->messages = messages;
 	mem->stdout = out;
 	mem->stderr = err;

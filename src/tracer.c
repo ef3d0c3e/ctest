@@ -1,39 +1,18 @@
 #include "tracer.h"
+#include "error.h"
 #include "memory.h"
+#include <capstone/capstone.h>
 #include <errno.h>
+#include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
+#include <sys/reg.h>
 #include <sys/user.h>
 #include <sys/wait.h>
-
-static void
-handle_child_signal(struct ctest_result* result, pid_t pid, int signum)
-{
-	fprintf(stderr, "Child sent signal %d\n", signum);
-}
-// Write data to child's memory
-void
-write_to_child(pid_t child_pid, uintptr_t addr, const void* data, size_t len)
-{
-	const unsigned long* ptr = (const unsigned long*)data;
-	for (size_t i = 0; i < (len + sizeof(long) - 1) / sizeof(long); i++) {
-		ptrace(PTRACE_POKEDATA, child_pid, addr + i * sizeof(long), ptr[i]);
-	}
-}
-
-// Read data from child's memory
-void
-read_from_child(pid_t child_pid, uintptr_t addr, void* data, size_t len)
-{
-	unsigned long* ptr = (unsigned long*)data;
-	for (size_t i = 0; i < (len + sizeof(long) - 1) / sizeof(long); i++) {
-		ptr[i] = ptrace(PTRACE_PEEKDATA, child_pid, addr + i * sizeof(long), NULL);
-	}
-}
 
 void
 __ctest_tracer_start(pid_t pid, struct ctest_result* result)
@@ -58,11 +37,11 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 	printf("Hooked result: %p\n", (void*)result);
 	printf("Shutdown jmp : %p\n", (void*)result->jmp_end);
 
-	int incoming_mem_hook = 0;
+	int incoming_mman = 0;
 	while (1) {
 		if (ptrace(PTRACE_SINGLESTEP, pid, 0, 0) < 0) {
 			perror("ptrace(SINGLESTEP)");
-			exit(EXIT_FAILURE);
+			exit(1);
 		}
 
 		if (waitpid(pid, &status, 0) != pid) {
@@ -79,27 +58,19 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 		} else if (WIFSTOPPED(status)) {
 			const int signal = WSTOPSIG(status);
 
-			if (signal != SIGTRAP) {
-				// FIXME
+			if (signal == SIGSEGV) {
 				struct user_regs_struct regs;
 				if (ptrace(PTRACE_GETREGS, pid, 0, &regs) < 0) {
 					perror("ptrace(GETREGS)");
 					exit(EXIT_FAILURE);
 				}
 
-				printf("Signal %d\n", signal);
-				regs.rip = (uintptr_t)result->jmp_end[0].__jmpbuf[7]; // Program counter
-				regs.rsp = (uintptr_t)result->jmp_end[0].__jmpbuf[6]; // Stack pointer
-				regs.rbp = (uintptr_t)result->jmp_end[0].__jmpbuf[1]; // Base pointer
-				regs.rax = 1;
-
-				// Set the modified registers
-				if (ptrace(PTRACE_SETREGS, pid, NULL, &regs) < 0) {
-					perror("ptrace(SETREGS)");
-					exit(1);
-				}
-				dprintf(result->messages, "Failed\n");
-				// Detach from the process
+				__ctest_handle_sigsegv(result, &regs);
+				continue;
+			}
+			else if (signal != SIGTRAP)
+			{
+				dprintf(result->messages, "Received signal: %d\n", signal);
 				if (ptrace(PTRACE_DETACH, pid, NULL, NULL) < 0) {
 					perror("ptrace(DETACH)");
 					exit(1);
@@ -107,14 +78,13 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 				break;
 			}
 		}
-		// Process memory hooks results
-		if (result->arena.in_memory_hook)
+		// Wait for the current memory hook to finish
+		if (result->arena.in_hook)
 			continue;
-		else if (incoming_mem_hook)
-		{
-			printf(" * Incoming: %p\n", result->message_in.mem.malloc.ptr);
+		// Process memory hooks results
+		else if (incoming_mman) {
 			__ctest_mem_add(result);
-			incoming_mem_hook = 0;
+			incoming_mman = 0;
 		}
 
 		struct user_regs_struct regs;
@@ -123,10 +93,45 @@ __ctest_tracer_start(pid_t pid, struct ctest_result* result)
 			exit(EXIT_FAILURE);
 		}
 
+		/*
+		csh handle;
+		cs_insn* insn;
+		size_t count;
+
+		if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
+			exit(1); // error handling
+
+		unsigned long addr =
+		  ptrace(PTRACE_PEEKUSER,
+		         pid,
+		         8 * RIP,
+		         0);      // Assuming RIP is the instruction pointer register for x86_64
+		uint8_t code[15]; // x86 instructions can be up to 15 bytes
+		for (int i = 0; i < 15; i++) {
+			code[i] = ptrace(PTRACE_PEEKTEXT, pid, addr + i, 0) & 0xff;
+		}
+
+		count = cs_disasm(handle, code, sizeof(code), addr, 1, &insn);
+		if (count > 0) {
+			// Check if insn->id (instruction ID) involves memory read or write
+			for (size_t i = 0; i < count; i++) {
+				if (insn[i].id == X86_INS_MOV || insn[i].id == X86_INS_MOVSX ||
+				    insn[i].id == X86_INS_MOVZX || insn[i].id == X86_INS_LEA ||
+				    insn[i].id == X86_INS_ADD ||
+				    insn[i].id == X86_INS_SUB) {
+					//fprintf(stdout, "Memory access:\n");
+					//TODO
+				}
+			}
+			cs_free(insn, count);
+		}
+		cs_close(&handle);
+		*/
+
 		// Memory management
 		if (regs.rip == (uintptr_t)malloc || regs.rip == (uintptr_t)realloc ||
 		    regs.rip == (uintptr_t)free) {
-			incoming_mem_hook = __ctest_mem_hook(result, &regs);
+			incoming_mman = __ctest_mem_memman_hook(result, &regs);
 
 			ptrace(PTRACE_SETREGS, pid, 0, &regs);
 		}

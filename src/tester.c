@@ -34,20 +34,16 @@ static void*
 child_start(const struct ctest_unit* unit, struct ctest_result* result)
 {
 	result->child_result = (uintptr_t)result;
+	// Set sighandlers
 	if (unit->flags & CTEST_DISABLE_PTRACE) {
-		// Set sighandlers
-		for (int i = 0; i < 32; ++i) {
-			// https://www.gnu.org/software/libc/manual/html_node/Blocking-for-Handler.html
-			struct sigaction act;
-			act.sa_handler = sighandler;
-			sigemptyset(&act.sa_mask);
-			act.sa_flags = SA_RESETHAND | SA_NODEFER;
-			if (i != 0 && i != 9 && i != 19 && i != SIGTRAP && sigaction(i, &act, NULL) == -1) {
-				int errsv = errno;
-				fprintf(
-				  stderr, "Failed to set signal handler for signal %d: %s\n", i, strerror(errsv));
-				exit(1);
-			}
+		// https://www.gnu.org/software/libc/manual/html_node/Blocking-for-Handler.html
+		struct sigaction act;
+		act.sa_handler = sighandler;
+		sigemptyset(&act.sa_mask);
+		act.sa_flags = SA_RESETHAND | SA_NODEFER;
+		if (sigaction(SIGSEGV, &act, NULL) == -1) {
+			perror("sigaction(SIGSEGV)");
+			exit(1);
 		}
 	}
 
@@ -56,7 +52,7 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 	printf("Real result: %p\n", &result);
 	_G_result = result;
 	// Run unit
-	
+
 	if (!(unit->flags & CTEST_DISABLE_PTRACE))
 		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
 	if (!setjmp(result->jmp_end)) {
@@ -73,14 +69,14 @@ void
 run_test(struct ctest_data* data, const struct ctest_unit* unit)
 {
 	__ctest_colors_set(1);
-	struct ctest_result* result = __ctest_result_new();
+	struct ctest_result* result = __ctest_result_new(unit);
 	// TODO: Redirect the child's stdout/stderr
 	pid_t pid = fork();
 	if (pid > 0) {
+		result->child = pid;
 		if (!(unit->flags & CTEST_DISABLE_PTRACE))
 			__ctest_tracer_start(pid, result);
-		else
-		{
+		else {
 			int status;
 			if (waitpid(pid, &status, 0) < 0) {
 				perror("waitpid()");

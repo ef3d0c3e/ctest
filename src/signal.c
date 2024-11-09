@@ -60,9 +60,9 @@ void __ctest_signal_handler(void (*handler)(int), struct ctest_result *result, i
 		void *buffer[64];
 		int size = backtrace(buffer, sizeof(buffer) / sizeof(buffer[0]));
 		char **bt = backtrace_symbols(buffer, size);
-		for (size_t i = 0; i < size; ++i)
+		for (int i = 0; i < size; ++i)
 		{
-			dprintf(result->messages, " #%zu: %s\n", i, bt[i]);
+			dprintf(result->messages, " #%d: %s\n", i, bt[i]);
 		}
 		free(bt);
 		longjmp(result->jmp_end, 1);

@@ -1,9 +1,13 @@
 #include "messages.h"
 #include <string.h>
 
-static union ctest_colors_data _G_colors = {
-	"", "", "", "", "",
-};
+static union ctest_colors_data _G_colors = { {
+  "",
+  "",
+  "",
+  "",
+  "",
+} };
 
 void
 __ctest_colors_set(int enable)
@@ -18,12 +22,17 @@ __ctest_colors_set(int enable)
 			.yellow = "\e[1;33m",
 		};
 	else
-		_G_colors = (union ctest_colors_data){
-			"", "", "", "", "",
-		};
+		_G_colors = (union ctest_colors_data){ {
+		  "",
+		  "",
+		  "",
+		  "",
+		  "",
+		} };
 }
 
-const char* __ctest_color(enum ctest_color color)
+const char*
+__ctest_color(enum ctest_color color)
 {
 	return _G_colors.colors[color];
 }
@@ -37,8 +46,8 @@ __ctest_colorize(enum ctest_color color, const char* s)
 	char* result = malloc(len + len_reset + len_color + 1);
 
 	memcpy(result, _G_colors.colors[color], len_color);
-	memcpy(result+len_color, s, len);
-	memcpy(result+len_color+len, _G_colors.reset, len_reset);
+	memcpy(result + len_color, s, len);
+	memcpy(result + len_color + len, _G_colors.reset, len_reset);
 	result[len + len_reset + len_color] = 0;
 
 	return result;

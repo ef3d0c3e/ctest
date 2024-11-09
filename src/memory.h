@@ -68,6 +68,7 @@ union ctest_mem_allocator_settings
 };
 
 // TODO: Store secondary table of deallocated memory to check for use after free and double free
+// FIXME: Split into memory/arena
 struct ctest_mem_arena
 {
 	struct ctest_mem_data* data;
@@ -77,7 +78,7 @@ struct ctest_mem_arena
 	 * Flag set to 1 when a memory hook is running.
 	 * So as to avoid recursive infinite loop.
 	 */
-	int in_memory_hook;
+	int in_hook;
 	/**
 	 * @param Settings for malloc
 	 */
@@ -118,8 +119,7 @@ __ctest_mem_delete(struct ctest_mem_arena* arena,
  * @returns The memory data associated with ptr, NULL if not found
  */
 struct ctest_mem_data*
-__ctest_mem_find(struct ctest_result* result,
-                   uintptr_t ptr);
+__ctest_mem_find(struct ctest_result* result, uintptr_t ptr);
 
 /**
  * @brief Prints the memory state to a file descriptor
@@ -128,17 +128,24 @@ __ctest_mem_find(struct ctest_result* result,
  * @param fd File descriptor to print to
  */
 void
-__ctest_mem_print(struct ctest_result* result,
-                   int fd);
+__ctest_mem_print(struct ctest_result* result, int fd);
+
+/**
+ * @brief Hooks called when a memory access is made
+ *
+ * @returns 1 If message_in needs to be processed for the next steps
+ */
+int
+__ctest_mem_mem_hook(struct ctest_result* result, int access, struct user_regs_struct* regs);
 
 /**
  * @brief Hooks called when a memory management function is called
  *
  * Currently this is called for malloc/realloc and free
  *
- * @returns 1 If message_in needs to be processed next step
+ * @returns 1 If message_in needs to be processed for the next steps
  */
 int
-__ctest_mem_hook(struct ctest_result* result, struct user_regs_struct* regs);
+__ctest_mem_memman_hook(struct ctest_result* result, struct user_regs_struct* regs);
 
 #endif // CTEST_MEMORY_H

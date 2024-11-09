@@ -11,6 +11,10 @@
 struct ctest_result
 {
 	/**
+	 * @brief The unit being tested
+	 */
+	const struct ctest_unit *unit;
+	/**
 	 * @brief The internal message channel
 	 *
 	 * Stores error and debug messages.
@@ -83,7 +87,7 @@ struct ctest_result
  * @returns A new mmap buffer containing a result
  */
 struct ctest_result*
-__ctest_result_new();
+__ctest_result_new(const struct ctest_unit* unit);
 /**
  * @brief Deletes a test result structure
  */

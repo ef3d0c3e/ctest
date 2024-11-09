@@ -29,7 +29,7 @@ __ctest_mem_arena_new()
 	return (struct ctest_mem_arena){ .data = NULL,
 		                             .size = 0,
 		                             .capacity = 0,
-		                             .in_memory_hook = 0,
+		                             .in_hook = 0,
 		                             .malloc_settings = (union ctest_mem_allocator_settings){
 		                               .malloc = {
 		                                 .failures_per_million = 0,
@@ -63,7 +63,7 @@ __ctest_mem_add(struct ctest_result* result)
 		// Nothing to do
 		if (result->message_in.mem.free.ptr == 0)
 			return;
-		struct ctest_mem_data *data = __ctest_mem_find(result, result->message_in.mem.free.ptr);
+		struct ctest_mem_data* data = __ctest_mem_find(result, result->message_in.mem.free.ptr);
 		data->freed = 1;
 
 	} else {
@@ -93,11 +93,9 @@ __ctest_mem_delete(struct ctest_mem_arena* arena,
 }
 
 struct ctest_mem_data*
-__ctest_mem_find(struct ctest_result* result,
-                   uintptr_t ptr)
+__ctest_mem_find(struct ctest_result* result, uintptr_t ptr)
 {
-	for (size_t i = 0; i < result->arena.size; ++i)
-	{
+	for (size_t i = 0; i < result->arena.size; ++i) {
 		if (result->arena.data[i].ptr == ptr)
 			return &result->arena.data[i];
 	}
@@ -105,16 +103,14 @@ __ctest_mem_find(struct ctest_result* result,
 }
 
 void
-__ctest_mem_print(struct ctest_result* result,
-                   int fd)
+__ctest_mem_print(struct ctest_result* result, int fd)
 {
-	for (size_t i = 0; i < result->arena.size; ++i)
-	{
-		dprintf(fd, " -- Heap block [%p] --\n size: %zu\n freed: %d\n",
-				(void*)result->arena.data[i].ptr,
-				result->arena.data[i].size,
-				result->arena.data[i].freed
-			);
+	for (size_t i = 0; i < result->arena.size; ++i) {
+		dprintf(fd,
+		        " -- Heap block [%p] --\n size: %zu\n freed: %d\n",
+		        (void*)result->arena.data[i].ptr,
+		        result->arena.data[i].size,
+		        result->arena.data[i].freed);
 	}
 }
 
@@ -124,11 +120,10 @@ malloc_hook(struct ctest_result* result)
 {
 	// TODO: Apply malloc settings
 	const size_t size = result->message_out.mem.malloc.regs.rdi;
-	if (!size && result->arena.malloc_settings.malloc.fail_on_zero)
-	{
+	if (!size && result->arena.malloc_settings.malloc.fail_on_zero) {
 		// TODO: Emit warning
 		result->message_in.mem.malloc.ptr = (uintptr_t)0;
-		result->arena.in_memory_hook = 0;
+		result->arena.in_hook = 0;
 		return NULL;
 	}
 
@@ -142,7 +137,7 @@ malloc_hook(struct ctest_result* result)
 	for (size_t i = 0; i < size; ++i)
 		((unsigned char*)ptr)[i] = rand() % 255;
 	result->message_in.mem.malloc.ptr = (uintptr_t)ptr;
-	result->arena.in_memory_hook = 0;
+	result->arena.in_hook = 0;
 
 	return ptr;
 }
@@ -152,19 +147,18 @@ free_hook(struct ctest_result* result)
 {
 	free((void*)result->message_out.mem.free.regs.rdi);
 	result->message_in.mem.free.ptr = (uintptr_t)result->message_out.mem.free.regs.rdi;
-	result->arena.in_memory_hook = 0;
+	result->arena.in_hook = 0;
 }
 
-
-void* print_stacktrace_exit(struct ctest_result* result)
+void*
+print_stacktrace_exit(struct ctest_result* result)
 {
-	void *bt[64];
+	void* bt[64];
 	const int size = backtrace(bt, 64);
-	char **lines = backtrace_symbols(bt, size);
+	char** lines = backtrace_symbols(bt, size);
 
 	fprintf(stderr, " * Stacktrace:\n");
-	for (int i = 0; i < size; ++i)
-	{
+	for (int i = 0; i < size; ++i) {
 		fprintf(stderr, " #%d: %s\n", i, lines[i]);
 	}
 	free(lines);
@@ -174,12 +168,12 @@ void* print_stacktrace_exit(struct ctest_result* result)
 }
 
 int
-__ctest_mem_hook(struct ctest_result* result, struct user_regs_struct* regs)
+__ctest_mem_memman_hook(struct ctest_result* result, struct user_regs_struct* regs)
 {
-	if (result->arena.in_memory_hook)
+	if (result->arena.in_hook)
 		return 0;
 
-	result->arena.in_memory_hook = 1;
+	result->arena.in_hook = 1;
 	if (regs->rip == (uintptr_t)malloc) {
 		result->message_out.mem.allocator = (uintptr_t)malloc;
 		result->message_out.mem.malloc.regs = *regs;
@@ -189,26 +183,23 @@ __ctest_mem_hook(struct ctest_result* result, struct user_regs_struct* regs)
 		result->message_out.mem.allocator = (uintptr_t)free;
 		result->message_out.mem.free.regs = *regs;
 		uintptr_t ptr = regs->rdi;
-		struct ctest_mem_data *data = __ctest_mem_find(result, ptr);
-		if (!data)
-		{
-			__ctest_raise_parent_error(result, regs, "Free on unknown pointer\n");
+		struct ctest_mem_data* data = __ctest_mem_find(result, ptr);
+		if (!data) {
+			__ctest_raise_parent_error(
+			  result, regs, "Free on unallocated memory: %p\n", (void*)ptr);
 			regs->rip = (uintptr_t)print_stacktrace_exit;
 			regs->rdi = (uintptr_t)result->child_result;
-		} else if (data->allocator != (uintptr_t)malloc)
-		{
-			__ctest_raise_parent_error(result, regs, "Free on pointer not allocated by malloc()\n");
+		} else if (data->allocator != (uintptr_t)malloc) {
+			__ctest_raise_parent_error(
+			  result, regs, "Free on pointer not allocated by malloc(): %p\n", (void*)ptr);
 			regs->rip = (uintptr_t)print_stacktrace_exit;
 			regs->rdi = (uintptr_t)result->child_result;
-		}
-		else if (data->freed)
-		{
-			__ctest_raise_parent_error(result, regs, "Double free detected in program\n");
+		} else if (data->freed) {
+			__ctest_raise_parent_error(
+			  result, regs, "Double free detected in program: %p\n", (void*)ptr);
 			regs->rip = (uintptr_t)print_stacktrace_exit;
 			regs->rdi = (uintptr_t)result->child_result;
-		}
-		else
-		{
+		} else {
 			regs->rip = (uintptr_t)free_hook;
 			regs->rdi = (uintptr_t)result->child_result;
 		}

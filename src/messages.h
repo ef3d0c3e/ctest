@@ -19,13 +19,13 @@ union ctest_colors_data
 {
 	struct
 	{
-		const char *reset;
-		const char *red;
-		const char *green;
-		const char *blue;
-		const char *yellow;
+		const char* reset;
+		const char* red;
+		const char* green;
+		const char* blue;
+		const char* yellow;
 	};
-	const char *colors[__CTEST_COLOR_SIZE];
+	const char* colors[__CTEST_COLOR_SIZE];
 };
 
 /**
@@ -33,23 +33,23 @@ union ctest_colors_data
  *
  * By default colors are disabled until enabled by this function.
  */
-void __ctest_colors_set(int enable);
+void
+__ctest_colors_set(int enable);
 
 /**
  * @brief Get a color by it's enum value
  *
  * @returns Color by it's enum value
  */
-const char* __ctest_color(enum ctest_color color);
+const char*
+__ctest_color(enum ctest_color color);
 
 /**
  * @brief Applies colors to a string
  *
  * @returns The colored version of the struct, needs to be freed()
  */
-char* __ctest_colorize(enum ctest_color color, const char *s);
-
-
-
+char*
+__ctest_colorize(enum ctest_color color, const char* s);
 
 #endif // CTEST_MESSAGES_H
