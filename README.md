@@ -1,8 +1,8 @@
 # CTest -- The x86_64 Linux C testing framework
 
-<div style="text-align: center;">
-![CTest logo](./logo.png)
-</div>
+<p align="center">
+    <img src="https://github.com/ef3d0c3e/ctest/raw/master/logo.png" alt="CTest logo">
+</p>
 
 **Note**: This is currently a work in progress
 
