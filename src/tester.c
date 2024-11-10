@@ -32,6 +32,7 @@ sighandler(int signum)
 static void*
 child_start(const struct ctest_unit* unit, struct ctest_result* result)
 {
+	// NOTE: Printf shouldn't be used in this function as it allocates an internal buffer
 	result->child_result = (uintptr_t)result;
 	// Set sighandlers
 	if (unit->flags & CTEST_DISABLE_PTRACE) {
@@ -46,14 +47,11 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 		}
 	}
 
-	// struct ctest_result result = __ctest_result_new();
 	write(0, " -- Child --\n", 13);
-	printf("Real result: %p\n", &result);
 	_G_result = result;
-	// Run unit
-
 	if (!(unit->flags & CTEST_DISABLE_PTRACE))
 		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+	// Run unit
 	if (!setjmp(result->jmp_end)) {
 		unit->fn(result);
 	}

@@ -1,8 +1,13 @@
 #include "tracer.h"
+#include "error.h"
+#include "mem_access.h"
+#include "insn.h"
+#include "result.h"
 #include <asm/prctl.h>
 #include <asm/unistd_64.h>
 #include <capstone/capstone.h>
 #include <errno.h>
+#include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,40 +19,23 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 
-// FIXME: Read once and store to a structure
-// Then update the structure as calls to mmap, munmap, mremap and brk are made.
-int is_address_mapped(pid_t pid, uint64_t address) {
-    char path[64];
-    snprintf(path, sizeof(path), "/proc/%d/maps", pid);
-    FILE *maps = fopen(path, "r");
-    if (!maps) {
-        perror("Failed to open /proc/[pid]/maps");
-        return 0;
-    }
-
-    uint64_t start, end;
-    while (fscanf(maps, "%lx-%lx", &start, &end) == 2) {
-        if (address >= start && address < end) {
-            fclose(maps);
-            return 1;  // Address is valid
-        }
-        // Skip to next line
-        while (fgetc(maps) != '\n' && !feof(maps));
-    }
-    fclose(maps);
-    return 0;  // Address is not mapped
+/* Graceful shutdown function */
+static void shutdown(struct ctest_result* result)
+{
+	longjmp(result->jmp_end, 1);
 }
 
-static void insn_hook(struct ctest_result* result, struct user_regs_struct* regs, cs_insn* insn)
+static int insn_hook(struct ctest_result* result, struct user_regs_struct* regs, cs_insn* insn)
 {
-	__ctest_mem_access_insn_hook(result, regs, insn);
+	if (!__ctest_mem_access_insn_hook(result, regs, insn))
+		return 0;
+	return 1;
 }
 
 void
 __ctest_tracer_start(struct ctest_result* result)
 {
 	if (ptrace(PTRACE_ATTACH, result->child, NULL, NULL) < 0) {
-		int errsv = errno;
 		perror("ptrace(ATTACH)");
 		exit(1);
 	}
@@ -127,7 +115,15 @@ __ctest_tracer_start(struct ctest_result* result)
 		}
 
 		// Process insn
-		__ctest_insn_hook(result, &regs, insn_hook);
+		if (!__ctest_insn_hook(result, &regs, insn_hook))
+		{
+			regs.rip = (uintptr_t)shutdown;
+			regs.rdi = (uintptr_t)result->child_result;
+
+			ptrace(PTRACE_SETREGS, result->child, 0, &regs);
+			break;
+		}
+
 
 		if (regs.rip == (uintptr_t)brk || regs.rip == (uintptr_t)sbrk)
 		{

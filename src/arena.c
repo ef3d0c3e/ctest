@@ -91,6 +91,31 @@ __ctest_mem_arena_find(struct ctest_result* result, uintptr_t ptr)
 	return NULL;
 }
 
+int
+__ctest_mem_arena_find_range(struct ctest_result* result,
+                             struct ctest_mem_allocation** alloc,
+                             uintptr_t start,
+                             uintptr_t end)
+{
+	for (size_t i = 0; i < result->mem.arena.size; ++i) {
+		struct ctest_mem_allocation* allocation = &result->mem.arena.data[i];
+		// Contains start
+		if (allocation->ptr <= start && allocation->ptr + allocation->size >= start) {
+			*alloc = allocation;
+			// Does not contain end : Buffer overflow
+			if (allocation->ptr + allocation->size <= end)
+				return 2;
+			return 0;
+		}
+		// Contains end only
+		else if (allocation->ptr < end && allocation->ptr + allocation->size > end) {
+			*alloc = allocation;
+			return 3;
+		}
+	}
+	return 1;
+}
+
 void
 __ctest_mem_arena_print(struct ctest_result* result, int fd)
 {

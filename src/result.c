@@ -1,7 +1,8 @@
-#include <capstone/capstone.h>
+#include "result.h"
 #include "memory.h"
 #include "signal.h"
-#include "result.h"
+#include <capstone/capstone.h>
+#include <elfutils/libdwfl.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -29,8 +30,12 @@ __ctest_result_new(const struct ctest_unit* unit)
 		fprintf(stderr, "Failed to create stderr buffer: %s", strerror(errsv));
 	}
 
-	struct ctest_result *mem = mmap(NULL, sizeof(struct ctest_result), PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	struct ctest_result* mem = mmap(NULL,
+	                                sizeof(struct ctest_result),
+	                                PROT_READ | PROT_WRITE,
+	                                MAP_SHARED | MAP_ANONYMOUS,
+	                                -1,
+	                                0);
 	mem->unit = unit;
 	mem->messages = messages;
 	mem->stdout = out;
@@ -39,12 +44,13 @@ __ctest_result_new(const struct ctest_unit* unit)
 	mem->sigdata = __ctest_signal_new();
 	mem->mem = __ctest_mem_new();
 
+	// Initialize capstone
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &mem->capstone_handle) != CS_ERR_OK) {
 		fprintf(stderr, "Failed to initialize Capstone engine\n");
 		exit(1);
 	}
 	cs_option(mem->capstone_handle, CS_OPT_DETAIL, CS_OPT_ON);
-	//cs_option(mem->capstone_handle, CS_OPT_SYNTAX, CS_OPT_SYNTAX_ATT);
+
 	return mem;
 }
 

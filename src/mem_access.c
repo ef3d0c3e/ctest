@@ -1,10 +1,14 @@
 #include "mem_access.h"
+#include "arena.h"
 #include "error.h"
+#include "mem_maps.h"
+#include "messages.h"
 #include "result.h"
 #include <asm/prctl.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <unistd.h>
 
 /* Get value in registor, from @ref x86_reg enum */
 static uintptr_t
@@ -93,26 +97,86 @@ calculate_effective_address(pid_t pid, cs_x86_op* op, struct user_regs_struct* r
 	return base + index + displacement + segment;
 }
 
-void __ctest_mem_access_insn_hook(struct ctest_result* result, struct user_regs_struct* regs, cs_insn* insn)
+int
+__ctest_mem_access_insn_hook(struct ctest_result* result,
+                             struct user_regs_struct* regs,
+                             cs_insn* insn)
 {
+	static const char* access_name[] = { "", "Read", "Write", "Read AND Write" };
+
 	cs_x86_op* op = &(insn[0].detail->x86.operands[0]);
 	if (op->type == X86_OP_MEM) {
-		// struct memory_access access;
-		//(op->access & CS_AC_READ);
-		//(op->access & CS_AC_WRITE);
+		const int is_read = (op->access & CS_AC_READ) != 0;
+		const int is_write = (op->access & CS_AC_WRITE) != 0;
+
 		uintptr_t address = calculate_effective_address(result->child, op, regs);
 		struct ctest_map_entry* map = __ctest_mem_maps_get(&result->mem.maps, address);
-		if (map)
-		{
-			printf("Accessed memory: %p [%s]\n", (void*)address, map->pathname);
+		for (size_t i = 0; i < result->mem.maps.size; ++i) {
+			// printf("%llx-%llx %s\n", result->mem.maps.data[i].start,
+			// result->mem.maps.data[i].end, result->mem.maps.data[i].pathname);
 		}
-		else
-		{
-			__ctest_raise_parent_error(result, regs, "Accessed unmapped memory: 0x%llx\n", (void*)address);
-			exit(1);
+		if (!map) {
+			__ctest_raise_parent_error(
+			  result,
+			  regs,
+			  "Attempt to %s %d bytes in unmapped memory: %s[0x%llx, 0x%llx]%s\n",
+			  access_name[is_read | (is_write << 1)],
+			  op->size,
+			  __ctest_color(CTEST_COLOR_BLUE),
+			  (void*)address,
+			  (void*)(address + op->size),
+			  __ctest_color(CTEST_COLOR_RESET));
+			__ctest_print_source_line(result, STDERR_FILENO, regs->rsp);
+			return 0;
 		}
+		if (strcmp(map->pathname, "[heap]") == 0) {
+			struct ctest_mem_allocation* alloc;
+			const int err =
+			  __ctest_mem_arena_find_range(result, &alloc, address, address + op->size);
+			if (err == 1) {
+				// TODO: Find closests blocks
+				__ctest_raise_parent_error(
+				  result,
+				  regs,
+				  "Attempt to %s %d bytes in unallocated heap memory: %s[0x%llx, 0x%llx]%s\n",
+				  access_name[is_read | (is_write << 1)],
+				  op->size,
+				  __ctest_color(CTEST_COLOR_BLUE),
+				  (void*)address,
+				  (void*)(address + op->size),
+				  __ctest_color(CTEST_COLOR_RESET));
+				return 0;
+			} else if (err == 2) {
+				__ctest_raise_parent_error(
+				  result,
+				  regs,
+				  "Heap-Buffer overflow of %d bytes in %s instruction: %s[0x%llx, 0x%llx]%s\n",
+				  address + op->size - alloc->ptr - alloc->size,
+				  access_name[is_read | (is_write << 1)],
+				  __ctest_color(CTEST_COLOR_BLUE),
+				  (void*)address,
+				  (void*)(address + op->size),
+				  __ctest_color(CTEST_COLOR_RESET));
+				__ctest_print_alloc_info(result, alloc);
+				return 0;
+			} else if (err == 3) {
+				__ctest_raise_parent_error(
+				  result,
+				  regs,
+				  "Heap-Buffer underflow of %d bytes in %s instruction: %s[0x%llx, 0x%llx]%s\n",
+				  alloc->ptr - address,
+				  access_name[is_read | (is_write << 1)],
+				  __ctest_color(CTEST_COLOR_BLUE),
+				  (void*)address,
+				  (void*)(address + op->size),
+				  __ctest_color(CTEST_COLOR_RESET));
+				__ctest_print_alloc_info(result, alloc);
+				return 0;
+			}
+		}
+		printf("Accessed memory: %p [%s]\n", (void*)address, map->pathname);
 	}
-	//printf("0x%" PRIx64 ": %s %s\n", insn[0].address,
+	return 1;
+	// printf("0x%" PRIx64 ": %s %s\n", insn[0].address,
 	//		insn[0].mnemonic, insn[0].op_str);
-
 }

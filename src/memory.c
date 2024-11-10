@@ -1,4 +1,5 @@
 #include "tester.h"
+#include "error.h"
 #include <dlfcn.h>
 #include <execinfo.h>
 #include <pthread.h>
@@ -6,6 +7,7 @@
 #include <stdlib.h>
 #include <sys/ipc.h>
 #include <sys/mman.h>
+#include <sys/ptrace.h>
 #include <sys/shm.h>
 #include <unistd.h>
 
@@ -81,6 +83,10 @@ print_stacktrace_exit(struct ctest_result* result)
 
 	longjmp(result->jmp_end, 1);
 }
+
+#include <elfutils/libdwfl.h>
+#include <gelf.h>
+#include <fcntl.h>
 
 int
 __ctest_mem_memman_hook(struct ctest_result* result, struct user_regs_struct* regs)

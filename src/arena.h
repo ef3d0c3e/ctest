@@ -107,6 +107,32 @@ struct ctest_mem_allocation*
 __ctest_mem_arena_find(struct ctest_result* result, uintptr_t ptr);
 
 /**
+ * @brief Finds a contiguous memory buffer that spans over a range
+ *
+ * @param result The result structure
+ * @param alloc The output of this function, see the returned values for more information
+ * @param start The start address
+ * @param end The end address
+ *
+ * @returns 0 On success, on failures this function returns the following error codes:
+ *  - 1 [alloc is not set]: No memory allocation was found for the start or end pointer of the range, e.g:
+ * 		`| 0x0 malloc(64) | HOLE | 0x80 malloc(16) |`, searching for range [80, 90]
+ *  - 2 [alloc is set to start allocation]: Start allocation was found but it did not contain the end address, e.g:
+ *  	`| 0x0 malloc(64) |`, searching for range [60, 70], this is most likely a buffer overflow
+ *  - 3 [alloc is set to end allocation]: Emd allocation was found but it did not contain the start address, e.g:
+ *  	`HOLE | 0x40 malloc(64) |`, searching for range [60, 70], this is most likely a buffer underflow
+ *
+ * # Example
+ *
+ * Consider this memory layout
+ * `| 0x0 malloc(64) || 0x40 malloc(16) |`
+ *  - If the search the range is [14, 16], then it will return the data allocated by the first malloc call()
+ *  - However, if you search the range [60, 70], because it spans over two allocations, it will return NULL
+ */
+int
+__ctest_mem_arena_find_range(struct ctest_result* result, struct ctest_mem_allocation** alloc, uintptr_t start, uintptr_t end);
+
+/**
  * @brief Prints the arena state to a file descriptor
  *
  * @param result The result structure

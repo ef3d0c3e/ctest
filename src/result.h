@@ -4,6 +4,7 @@
 #include "memory.h"
 #include "signal.h"
 #include <capstone/capstone.h>
+#include <elfutils/libdwfl.h>
 #include <setjmp.h>
 
 /**
@@ -14,7 +15,7 @@ struct ctest_result
 	/**
 	 * @brief The unit being tested
 	 */
-	const struct ctest_unit *unit;
+	const struct ctest_unit* unit;
 	/**
 	 * @brief The internal message channel
 	 *

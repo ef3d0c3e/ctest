@@ -24,10 +24,10 @@ read_instruction_bytes(pid_t pid, uintptr_t address, uint8_t* buffer, size_t len
 	}
 }
 
-void
+int
 __ctest_insn_hook(struct ctest_result* result,
                   struct user_regs_struct* regs,
-                  void (*insn_hook)(struct ctest_result*, struct user_regs_struct*, cs_insn*))
+                  int (*insn_hook)(struct ctest_result*, struct user_regs_struct*, cs_insn*))
 {
 	const static size_t MAX_INSN_LEN = 15; // Maximum length for x86_64
 	uint8_t code[MAX_INSN_LEN];
@@ -40,6 +40,7 @@ __ctest_insn_hook(struct ctest_result* result,
 		exit(1);
 	}
 
-	insn_hook(result, regs, insn);
+	const int retval = insn_hook(result, regs, insn);
 	cs_free(insn, count);
+	return retval;
 }
