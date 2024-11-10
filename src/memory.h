@@ -93,7 +93,7 @@ struct ctest_mem
  *
  * @param pid The child's pid
  *
- * @note The @ref mem_maps won't be populated here, a later call to @ref __ctest_mem_maps_parse is required
+ * @note The @ref mem_maps won't be populated here, a later call to @ref __ctest_mem_maps_parse() is required
  */
 struct ctest_mem __ctest_mem_new();
 

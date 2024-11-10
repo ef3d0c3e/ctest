@@ -1,6 +1,3 @@
-#include "memory.h"
-#include "arena.h"
-#include "error.h"
 #include "tester.h"
 #include <dlfcn.h>
 #include <execinfo.h>

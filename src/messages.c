@@ -15,11 +15,11 @@ __ctest_colors_set(int enable)
 	if (enable)
 
 		_G_colors = (union ctest_colors_data){
-			.reset = "\e[0m",
-			.red = "\e[1;31m",
-			.green = "\e[1;32m",
-			.blue = "\e[1;34m",
-			.yellow = "\e[1;33m",
+			.reset = "\033[0m",
+			.red = "\033[1;31m",
+			.green = "\033[1;32m",
+			.blue = "\033[1;34m",
+			.yellow = "\033[1;33m",
 		};
 	else
 		_G_colors = (union ctest_colors_data){ {

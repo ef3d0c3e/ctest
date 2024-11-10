@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "tester.h"
 #include "messages.h"
 #include "result.h"

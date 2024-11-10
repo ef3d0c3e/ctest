@@ -68,7 +68,7 @@ void
 __ctest_mem_maps_free(struct ctest_maps* maps);
 
 /**
- * @brief Gets the corresponding map that contains @param address
+ * @brief Gets the corresponding map that contains @p address
  *
  * @param maps The memory maps
  * @param address The address to find the map of

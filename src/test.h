@@ -69,7 +69,7 @@ struct ctest_unit
  * allows ctest to read it.
  *
  * @param __NAME Name (identifier) of the test to create (used for logging)
- * @pram __VA_ARGS__ Content of the test, a scope of C code
+ * @param ... Content of the test, a scope of C code
  *
  * @note The test name should be a file-unique identifier, expect unreadable error messages
  * otherwise
@@ -124,7 +124,7 @@ struct ctest_unit
 /**
  * @brief Check for an expression value with custom failure message
  *
- * @pram __MSG Custom assertion message
+ * @param __MSG Custom assertion message
  * @param __EXPR The expression to check for
  */
 #define CTEST_ASSERT_MSG(__MSG, __EXPR)                                                          \

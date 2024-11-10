@@ -1,9 +1,4 @@
 #include "tracer.h"
-#include "error.h"
-#include "insn.h"
-#include "mem_access.h"
-#include "memory.h"
-#include "mem_maps.h"
 #include <asm/prctl.h>
 #include <asm/unistd_64.h>
 #include <capstone/capstone.h>

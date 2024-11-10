@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <capstone/capstone.h>
 #include "memory.h"
 #include "signal.h"
