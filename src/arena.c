@@ -11,7 +11,7 @@ grow(struct ctest_mem_arena* arena)
 		arena->capacity = 1;
 	} else {
 		arena->capacity *= 2;
-		arena->data = realloc(arena->data, arena->capacity);
+		arena->data = realloc(arena->data, arena->capacity * sizeof(struct ctest_mem_allocation));
 	}
 }
 

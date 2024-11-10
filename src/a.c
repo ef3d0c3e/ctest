@@ -10,8 +10,8 @@ void* f()
 }
 
 CTEST_UNIT(test, {
-	char *s = f();
-	s[0] = 1;
+	char *s = 0;
+	s[0] = rand();
 	s[1] = 2;
 	s[2] = 3;
 	((int*)s)[1] = 0x12345678;

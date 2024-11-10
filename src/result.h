@@ -3,6 +3,7 @@
 
 #include "memory.h"
 #include "signal.h"
+#include <capstone/capstone.h>
 #include <setjmp.h>
 
 /**
@@ -63,6 +64,11 @@ struct ctest_result
 	 * @brief Flag set to 1 when the child is in the testing function
 	 */
 	int in_function;
+
+	/**
+	 * @brief Handle of the capstone engine
+	 */
+	csh capstone_handle;
 
 	/**
 	 * @brief Messages parent -> child

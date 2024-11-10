@@ -84,8 +84,8 @@ run_test(struct ctest_data* data, const struct ctest_unit* unit)
 				exit(1);
 			}
 		}
+		__ctest_result_free(result);
 	} else {
 		child_start(unit, result);
 	}
-	__ctest_result_free(result);
 }

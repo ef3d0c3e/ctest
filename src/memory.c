@@ -15,7 +15,7 @@
 struct ctest_mem
 __ctest_mem_new()
 {
-	return (struct ctest_mem){ 
+	return (struct ctest_mem){
 		.arena = __ctest_mem_arena_new(),
 		.in_hook = 0,
 		                       .malloc_settings = (union ctest_mem_allocator_settings){
@@ -28,6 +28,7 @@ __ctest_mem_new()
 void
 __ctest_mem_free(struct ctest_mem* mem)
 {
+	__ctest_mem_maps_free(&mem->maps);
 	__ctest_mem_arena_free(&mem->arena);
 }
 
@@ -81,7 +82,6 @@ print_stacktrace_exit(struct ctest_result* result)
 	}
 	free(lines);
 
-	// TODO
 	longjmp(result->jmp_end, 1);
 }
 

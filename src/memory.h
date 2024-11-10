@@ -2,6 +2,7 @@
 #define CTEST_MEMORY_H
 
 #include "arena.h"
+#include "mem_maps.h"
 
 struct ctest_result;
 
@@ -66,6 +67,12 @@ union ctest_mem_allocator_settings
 struct ctest_mem
 {
 	/**
+	 * @brief The child's memory maps
+	 *
+	 * @note This entry cannot be populated in @ref __ctest_mem_new() because we don't yet know the child's pid
+	 */
+	struct ctest_maps maps;
+	/**
 	 * @brief The allocation arena
 	 */
 	struct ctest_mem_arena arena;
@@ -81,19 +88,12 @@ struct ctest_mem
 	union ctest_mem_allocator_settings malloc_settings;
 };
 
-struct ctest_mem_access
-{
-	int is_read;
-	int is_write;
-
-	/**
-	 * @brief Memory address accessed in the child's memory space
-	 */
-	uintptr_t address;
-};
-
 /**
  * @brief Creates a new memory structure
+ *
+ * @param pid The child's pid
+ *
+ * @note The @ref mem_maps won't be populated here, a later call to @ref __ctest_mem_maps_parse is required
  */
 struct ctest_mem __ctest_mem_new();
 

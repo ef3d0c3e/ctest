@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <capstone/capstone.h>
 #include "memory.h"
 #include "signal.h"
 #include "result.h"
@@ -38,6 +39,13 @@ __ctest_result_new(const struct ctest_unit* unit)
 	mem->in_function = 0;
 	mem->sigdata = __ctest_signal_new();
 	mem->mem = __ctest_mem_new();
+
+	if (cs_open(CS_ARCH_X86, CS_MODE_64, &mem->capstone_handle) != CS_ERR_OK) {
+		fprintf(stderr, "Failed to initialize Capstone engine\n");
+		exit(1);
+	}
+	cs_option(mem->capstone_handle, CS_OPT_DETAIL, CS_OPT_ON);
+	//cs_option(mem->capstone_handle, CS_OPT_SYNTAX, CS_OPT_SYNTAX_ATT);
 	return mem;
 }
 
@@ -52,6 +60,7 @@ __ctest_result_free(struct ctest_result* res)
 		close(res->stderr);
 	__ctest_signal_free(&res->sigdata);
 	__ctest_mem_free(&res->mem);
+	cs_close(&res->capstone_handle);
 	munmap(res, sizeof(struct ctest_result));
 }
 
