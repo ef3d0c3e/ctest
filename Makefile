@@ -1,24 +1,37 @@
 NAME   := ctest
 CC     := gcc
-CFLAGS := -Wall -Wextra -rdynamic -D_GNU_SOURCE
-LFLAGS := -lcapstone
+CFLAGS := -Wall -Wextra -rdynamic -std=c23 -D_GNU_SOURCE
 
 SOURCES := $(wildcard src/*.c)
 OBJECTS := $(addprefix objs/,$(SOURCES:.c=.o))
+INCLUDES := -I libs/capstone/include -I libs/elfutils
 
 objs/%.o : %.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-libs/capstone/libcapstone.so.5:
-	cd libs/capstone && CAPSTONE_STATIC=yes CAPSTONE_ARCHS="x86" ./make.sh
+$(NAME): $(OBJECTS)
+	$(CC) $(CFLAGS) $(OBJECTS) \
+		/home/baraquiel/Programming/ctests/libs/capstone/libcapstone.a \
+		-ldw \
+		-o $(NAME)
+
+.PHONY: libs/capstone/libcapstone.a
+libs/capstone/libcapstone.a:
+	cd libs/capstone && \
+	make
+
+.PHONY: libs/elfutils/libdwfl/libdwfl.a
+libs/elfutils/libdwfl/libdwfl.a:
+	cd libs/elfutils && \
+	autoreconf -i -f && \
+	./configure --enable-maintainer-mode && \
+	make
 
 .PHONY: libs
-libs: r
-	libs/capstone/libcapstone.so.5
-
-$(NAME): libs $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) $(LFLAGS) -o $(NAME)
+libs: \
+	libs/capstone/libcapstone.a \
+	libs/elfutils/libdwfl/libdwfl.a
 
 .PHONY: all
 all: $(NAME)
