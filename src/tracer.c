@@ -1,8 +1,8 @@
 #include "tracer.h"
 #include "calls.h"
 #include "error.h"
-#include "mem_access.h"
 #include "insn.h"
+#include "mem_access.h"
 #include "result.h"
 #include <asm/prctl.h>
 #include <asm/unistd_64.h>
@@ -21,25 +21,25 @@
 #include <sys/wait.h>
 
 /* Graceful shutdown function */
-static void shutdown(struct ctest_result* result)
+static void
+shutdown(struct ctest_result* result)
 {
 	longjmp(result->jmp_end, 1);
 }
 
-static int insn_hook(struct ctest_result* result, struct user_regs_struct* regs, cs_insn* insn)
+static int
+insn_hook(struct ctest_result* result, struct user_regs_struct* regs, cs_insn* insn)
 {
 	// Check for call insn
 	int is_call = 0;
-	for (int i = 0; i < insn[0].detail->groups_count; ++i)
-	{
-		if (insn[0].detail->groups[i] == CS_GRP_CALL)
-		{
+	for (int i = 0; i < insn[0].detail->groups_count; ++i) {
+		if (insn[0].detail->groups[i] == CS_GRP_CALL) {
 			is_call = 1;
 			break;
 		}
 	}
 
-	if (is_call && ! __ctest_calls_hook(result, regs, insn))
+	if (is_call && !__ctest_calls_insn_hook(result, regs, insn))
 		return 0;
 	if (!__ctest_mem_access_insn_hook(result, regs, insn))
 		return 0;
@@ -84,10 +84,10 @@ __ctest_tracer_start(struct ctest_result* result)
 		}
 
 		if (WIFEXITED(status)) {
-			printf("Child process exited with status %d\n", WEXITSTATUS(status));
+			fprintf(stderr, "Child process exited with status %d\n", WEXITSTATUS(status));
 			break;
 		} else if (WIFSIGNALED(status)) {
-			printf("Child process exited with status %d\n", WEXITSTATUS(status));
+			fprintf(stderr, "Child process exited with status %d\n", WEXITSTATUS(status));
 			break;
 		} else if (WIFSTOPPED(status)) {
 			const int signal = WSTOPSIG(status);
@@ -128,9 +128,8 @@ __ctest_tracer_start(struct ctest_result* result)
 			exit(EXIT_FAILURE);
 		}
 
-		// Process insn
-		if (!__ctest_insn_hook(result, &regs, insn_hook))
-		{
+		// Process insn, shut down on failure
+		if (!__ctest_insn_hook(result, &regs, insn_hook)) {
 			regs.rip = (uintptr_t)shutdown;
 			regs.rdi = (uintptr_t)result->child_result;
 
@@ -138,9 +137,7 @@ __ctest_tracer_start(struct ctest_result* result)
 			break;
 		}
 
-
-		if (regs.rip == (uintptr_t)brk || regs.rip == (uintptr_t)sbrk)
-		{
+		if (regs.rip == (uintptr_t)brk || regs.rip == (uintptr_t)sbrk) {
 			fprintf(stderr, "syscall [s]brk detected\n");
 			exit(1);
 		}

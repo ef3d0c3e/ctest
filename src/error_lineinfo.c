@@ -10,7 +10,6 @@ static void
 print_source_line_from_file(int fd, const char* source_file, int line_number)
 {
 	FILE* file = fopen(source_file, "r");
-	printf("%s\n\n", source_file);
 	if (!file) {
 		perror("Error opening file");
 		return;

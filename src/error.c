@@ -171,7 +171,7 @@ __ctest_print_alloc_info(struct ctest_result* result, struct ctest_mem_allocatio
 	        alloc->size,
 	        get_allocator_name(alloc->allocator),
 	        __ctest_color(CTEST_COLOR_RESET));
-	__ctest_print_source_line(result, STDERR_FILENO, alloc->regs.rip);
+	__ctest_print_source_line(result, STDERR_FILENO, alloc->alloc_rip);
 
 	if (!alloc->freed_rip)
 		return;
@@ -183,6 +183,5 @@ __ctest_print_alloc_info(struct ctest_result* result, struct ctest_mem_allocatio
 	        alloc->size,
 	        get_deallocator_name(alloc->allocator),
 	        __ctest_color(CTEST_COLOR_RESET));
-	printf("freed+rsp=%p\n", (void*)alloc->freed_rip);
 	__ctest_print_source_line(result, STDERR_FILENO, alloc->freed_rip);
 }

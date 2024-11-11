@@ -36,24 +36,32 @@ __ctest_mem_arena_add(struct ctest_result* result)
 {
 	if (result->mem.arena.size >= result->mem.arena.capacity)
 		grow(&result->mem.arena);
+
 	struct ctest_mem_allocation data;
 	data.allocator = result->message_out.mem.allocator;
 	data.regs = result->message_out.mem.malloc.regs;
+	/* malloc */
 	if (data.allocator == (uintptr_t)malloc) {
 		data.ptr = result->message_in.mem.malloc.ptr;
 		data.size = result->message_out.mem.malloc.regs.rdi;
 		data.freed_rip = 0;
-	} else if (data.allocator == (uintptr_t)realloc) {
+		data.alloc_rip = result->rip_before_call;
+	}
+	/* realloc */
+	else if (data.allocator == (uintptr_t)realloc) {
 		data.ptr = result->message_in.mem.realloc.ptr;
 		data.size = result->message_out.mem.realloc.regs.rsi;
 		data.freed_rip = 0;
-	} else if (data.allocator == (uintptr_t)free) {
+		data.alloc_rip = result->rip_before_call;
+	}
+	/* free */
+	else if (data.allocator == (uintptr_t)free) {
 		// Nothing to do
 		if (result->message_in.mem.free.ptr == 0)
 			return;
 		struct ctest_mem_allocation* data =
 		  __ctest_mem_arena_find(result, result->message_in.mem.free.ptr);
-		data->freed_rip = result->message_out.mem.free.regs.rsp;
+		data->freed_rip = result->rip_before_call;
 
 	} else {
 		fprintf(stderr, "%s: Unknown allocator: 0x%p\n", __FUNCTION__, (void*)data.allocator);

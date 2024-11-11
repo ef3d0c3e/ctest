@@ -72,6 +72,13 @@ struct ctest_result
 	csh capstone_handle;
 
 	/**
+	 * @brief Copy of the RIP register before the last call instruction
+	 *
+	 * This variable is updated by @ref __ctest_calls_insn_hook
+	 */
+	uintptr_t rip_before_call;
+
+	/**
 	 * @brief Messages parent -> child
 	 *
 	 * Used to send custom commands to hooks

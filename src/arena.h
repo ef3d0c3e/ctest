@@ -31,6 +31,10 @@ struct ctest_mem_allocation
 	 */
 	struct user_regs_struct regs;
 	/**
+	 * @brief RIP before the allocator function was called
+	 */
+	uintptr_t alloc_rip;
+	/**
 	 * @brief RIP when the instruction was freed, 0 if not freed
 	 */
 	uintptr_t freed_rip;

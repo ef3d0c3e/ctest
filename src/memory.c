@@ -95,6 +95,7 @@ __ctest_mem_memman_hook(struct ctest_result* result, struct user_regs_struct* re
 		return 0;
 
 	result->mem.in_hook = 1;
+	// TODO: realloc
 	if (regs->rip == (uintptr_t)malloc) {
 		result->message_out.mem.allocator = (uintptr_t)malloc;
 		result->message_out.mem.malloc.regs = *regs;
@@ -124,6 +125,10 @@ __ctest_mem_memman_hook(struct ctest_result* result, struct user_regs_struct* re
 			regs->rip = (uintptr_t)free_hook;
 			regs->rdi = (uintptr_t)result->child_result;
 		}
+	}
+	else {
+		fprintf(stderr, "%s: Unsupported allocator\n", __FUNCTION__);
+		exit(1);
 	}
 	return 1;
 }
