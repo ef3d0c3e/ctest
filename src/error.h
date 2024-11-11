@@ -23,6 +23,9 @@ __ctest_raise_parent_error(struct ctest_result* result,
 
 /**
  * @brief Prints information related to an allocation
+ *
+ * @param result The result structure
+ * @param alloc The allocation
  */
 void
 __ctest_print_alloc_info(struct ctest_result* result, struct ctest_mem_allocation* alloc);
@@ -43,10 +46,10 @@ __ctest_print_registers(int fd, struct user_regs_struct* regs);
  *
  * @param result The result structure
  * @param fd The file descriptor to print to
- * @param rsp The stack pointer to print the information of
+ * @param rip Instruction to print the line of
  */
 void
-__ctest_print_source_line(struct ctest_result* result, int fd, uintptr_t rsp);
+__ctest_print_source_line(struct ctest_result* result, int fd, uintptr_t rip);
 
 /**
  * @brief Prints a stacktrace of the traced process

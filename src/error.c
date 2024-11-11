@@ -3,8 +3,6 @@
 #include "result.h"
 #include "test.h"
 #include <capstone/capstone.h>
-#include <elfutils/libdwfl.h>
-#include <errno.h>
 #include <inttypes.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -152,6 +150,17 @@ get_allocator_name(uintptr_t allocator)
 	return "<unknown allocator>";
 }
 
+static const char*
+get_deallocator_name(uintptr_t allocator)
+{
+	if (allocator == (uintptr_t)malloc || allocator == (uintptr_t)realloc)
+		return "free";
+	if (allocator == (uintptr_t)mmap || allocator == (uintptr_t)mremap)
+		return "munmap";
+	// TODO: brk/sbrk
+	return "<unknown allocator>";
+}
+
 void
 __ctest_print_alloc_info(struct ctest_result* result, struct ctest_mem_allocation* alloc)
 {
@@ -162,96 +171,18 @@ __ctest_print_alloc_info(struct ctest_result* result, struct ctest_mem_allocatio
 	        alloc->size,
 	        get_allocator_name(alloc->allocator),
 	        __ctest_color(CTEST_COLOR_RESET));
-	uintptr_t addr = ptrace(PTRACE_PEEKTEXT, result->child, alloc->regs.rsp, NULL);
-	__ctest_print_source_line(result, STDERR_FILENO, addr);
-}
+	__ctest_print_source_line(result, STDERR_FILENO, alloc->regs.rip);
 
-/* Reads the file to memory and print lines in [line_number-1, line_number+1] */
-static void
-print_source_line_from_file(int fd, const char* source_file, int line_number)
-{
-	FILE* file = fopen(source_file, "r");
-	if (!file) {
-		perror("Error opening file");
+	if (!alloc->freed_rip)
 		return;
-	}
 
-	int current_line = 1;
-
-	char* line = NULL;
-	size_t sz = 0;
-	ssize_t read;
-	dprintf(fd, "File '%s', line %d:\n", source_file, line_number);
-	while ((read = getline(&line, &sz, file)) != -1) {
-		if (current_line < line_number - 1) {
-			current_line++;
-			continue;
-		} else if (current_line > line_number + 1)
-			break;
-
-		if (current_line == line_number)
-			dprintf(fd,
-			        " %s%d>\t|%s %s%s%s",
-			        __ctest_color(CTEST_COLOR_GREEN),
-			        current_line,
-			        __ctest_color(CTEST_COLOR_RESET),
-			        __ctest_color(CTEST_COLOR_RED),
-			        line,
-			        __ctest_color(CTEST_COLOR_RESET));
-		else
-			dprintf(fd,
-			        " %s%d\t|%s %s",
-			        __ctest_color(CTEST_COLOR_GREEN),
-			        current_line,
-			        __ctest_color(CTEST_COLOR_RESET),
-			        line);
-		current_line++;
-	}
-	if (line)
-		free(line);
-	fclose(file);
-}
-
-void
-__ctest_print_source_line(struct ctest_result* result, int fd, uintptr_t addr)
-{
-	Dwfl* dwfl;
-	Dwfl_Callbacks callbacks = {
-		.find_elf = dwfl_linux_proc_find_elf,
-		.find_debuginfo = dwfl_standard_find_debuginfo,
-	};
-
-	dwfl = dwfl_begin(&callbacks);
-	if (!dwfl) {
-		fprintf(stderr, "Failed to initialize Dwfl");
-		exit(1);
-	}
-
-	if (dwfl_linux_proc_report(dwfl, result->child) != 0) {
-		fprintf(stderr, "dwfl_linux_proc_report failed: %s\n", strerror(errno));
-		exit(1);
-	}
-
-	if (dwfl_report_end(dwfl, NULL, NULL) != 0) {
-		fprintf(stderr, "dwfl_report_end failed: %s\n", strerror(errno));
-		exit(1);
-	}
-
-	Dwfl_Module* module = dwfl_addrmodule(dwfl, addr);
-	const char* source_file;
-	int line_nr;
-
-	if (module) {
-		Dwfl_Line* line = dwfl_module_getsrc(module, addr);
-		if (line) {
-			source_file = dwfl_lineinfo(line, &addr, &line_nr, NULL, NULL, NULL);
-			print_source_line_from_file(fd, source_file, line_nr);
-		} else
-			fprintf(stderr, "<Failed to get line information, likely no debug informations>\n");
-	} else {
-		fprintf(stderr, "Failed to get module information\n");
-		exit(1);
-	}
-
-	dwfl_end(dwfl);
+	fprintf(stderr,
+	        " %s* Buffer [%p; %zu] deallocated by %s():%s\n",
+	        __ctest_color(CTEST_COLOR_BLUE),
+	        (void*)alloc->ptr,
+	        alloc->size,
+	        get_deallocator_name(alloc->allocator),
+	        __ctest_color(CTEST_COLOR_RESET));
+	printf("freed+rsp=%p\n", (void*)alloc->freed_rip);
+	__ctest_print_source_line(result, STDERR_FILENO, alloc->freed_rip);
 }

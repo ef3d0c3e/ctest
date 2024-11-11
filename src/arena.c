@@ -42,18 +42,18 @@ __ctest_mem_arena_add(struct ctest_result* result)
 	if (data.allocator == (uintptr_t)malloc) {
 		data.ptr = result->message_in.mem.malloc.ptr;
 		data.size = result->message_out.mem.malloc.regs.rdi;
-		data.freed = 0;
+		data.freed_rip = 0;
 	} else if (data.allocator == (uintptr_t)realloc) {
 		data.ptr = result->message_in.mem.realloc.ptr;
 		data.size = result->message_out.mem.realloc.regs.rsi;
-		data.freed = 0;
+		data.freed_rip = 0;
 	} else if (data.allocator == (uintptr_t)free) {
 		// Nothing to do
 		if (result->message_in.mem.free.ptr == 0)
 			return;
 		struct ctest_mem_allocation* data =
 		  __ctest_mem_arena_find(result, result->message_in.mem.free.ptr);
-		data->freed = 1;
+		data->freed_rip = result->message_out.mem.free.regs.rsp;
 
 	} else {
 		fprintf(stderr, "%s: Unknown allocator: 0x%p\n", __FUNCTION__, (void*)data.allocator);
@@ -100,10 +100,10 @@ __ctest_mem_arena_find_range(struct ctest_result* result,
 	for (size_t i = 0; i < result->mem.arena.size; ++i) {
 		struct ctest_mem_allocation* allocation = &result->mem.arena.data[i];
 		// Contains start
-		if (allocation->ptr <= start && allocation->ptr + allocation->size >= start) {
+		if (allocation->ptr <= start && allocation->ptr + allocation->size > start) {
 			*alloc = allocation;
 			// Does not contain end : Buffer overflow
-			if (allocation->ptr + allocation->size <= end)
+			if (allocation->ptr + allocation->size < end)
 				return 2;
 			return 0;
 		}
@@ -121,9 +121,9 @@ __ctest_mem_arena_print(struct ctest_result* result, int fd)
 {
 	for (size_t i = 0; i < result->mem.arena.size; ++i) {
 		dprintf(fd,
-		        " -- Heap block [%p] --\n size: %zu\n freed: %d\n",
+		        " -- Heap block [%p] --\n size: %zu\n freed: %lx\n",
 		        (void*)result->mem.arena.data[i].ptr,
 		        result->mem.arena.data[i].size,
-		        result->mem.arena.data[i].freed);
+		        result->mem.arena.data[i].freed_rip);
 	}
 }

@@ -5,13 +5,14 @@
 #include <elfutils/libdwfl.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <unistd.h>
 
-void
+static void
 print_function_and_source_line_from_addr(int fd, Dwfl* dwfl, Dwarf_Addr pc)
 {
 	Dwfl_Module* module = dwfl_addrmodule(dwfl, pc);
 	if (!module) {
-		printf("No module found for address %lx\n", pc);
+		dprintf(STDERR_FILENO, "No module found for address %lx\n", pc);
 		return;
 	}
 

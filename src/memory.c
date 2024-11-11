@@ -115,7 +115,7 @@ __ctest_mem_memman_hook(struct ctest_result* result, struct user_regs_struct* re
 			  result, regs, "Free on pointer not allocated by malloc(): %p\n", (void*)ptr);
 			regs->rip = (uintptr_t)print_stacktrace_exit;
 			regs->rdi = (uintptr_t)result->child_result;
-		} else if (data->freed) {
+		} else if (data->freed_rip) {
 			__ctest_raise_parent_error(
 			  result, regs, "Double free detected in program: %p\n", (void*)ptr);
 			regs->rip = (uintptr_t)print_stacktrace_exit;

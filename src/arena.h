@@ -31,9 +31,9 @@ struct ctest_mem_allocation
 	 */
 	struct user_regs_struct regs;
 	/**
-	 * @brief Flag to indicate if the allocation has been freed
+	 * @brief RIP when the instruction was freed, 0 if not freed
 	 */
-	int freed;
+	uintptr_t freed_rip;
 };
 
 // TODO: Store secondary table of deallocated memory to check for use after free and double free
