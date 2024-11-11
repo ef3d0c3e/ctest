@@ -1,6 +1,6 @@
 NAME   := ctest
 CC     := gcc
-CFLAGS := -Wall -Wextra -rdynamic -std=c23 -D_GNU_SOURCE
+CFLAGS := -Wall -Wextra -rdynamic -D_GNU_SOURCE
 LFLAGS := -lcapstone
 
 SOURCES := $(wildcard src/*.c)
@@ -10,7 +10,14 @@ objs/%.o : %.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(NAME): $(OBJECTS)
+libs/capstone/libcapstone.so.5:
+	cd libs/capstone && CAPSTONE_STATIC=yes CAPSTONE_ARCHS="x86" ./make.sh
+
+.PHONY: libs
+libs: r
+	libs/capstone/libcapstone.so.5
+
+$(NAME): libs $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) $(LFLAGS) -o $(NAME)
 
 .PHONY: all
