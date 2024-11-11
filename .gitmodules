@@ -3,5 +3,5 @@
 	url = https://github.com/libcapstone/libcapstone
 [submodule "libs/elfutils"]
 	path = libs/elfutils
-	url = "git://sourceware.org/git/elfutils.git"
+	url = git://sourceware.org/git/elfutils.git
 	branch = main
