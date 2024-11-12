@@ -46,6 +46,13 @@ struct ctest_mem_allocation
 	uintptr_t freed_rip;
 };
 
+/**
+ * @brief Free a memory allocation
+ *
+ * @param allocation The allocation to free
+ */
+void __ctest_mem_allocation_free(struct ctest_mem_allocation* allocation);
+
 // FIXME: Store secondary table of deallocated memory to check for use after free and double free
 // The freed attribute is not enough because a memory block may be reused by malloc in case of
 // free.

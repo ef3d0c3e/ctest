@@ -1,4 +1,5 @@
 #include "memory_management.h"
+#include "mem_maps.h"
 #include "result.h"
 #include "error.h"
 #include "tracer.h"
@@ -61,6 +62,10 @@ __ctest_mem_process_allocation(struct ctest_result* result)
 		fprintf(stderr, "%s: Unknown allocator: 0x%p\n", __FUNCTION__, (void*)data.allocator);
 		exit(1);
 	}
+
+	/* Reparse the maps */
+	__ctest_mem_maps_free(&result->mem.maps);
+	result->mem.maps = __ctest_mem_maps_parse(result->child);
 }
 
 /* Malloc hook called by the child */

@@ -12,22 +12,9 @@
 #include <sys/user.h>
 #include <unistd.h>
 
-/* Gets the value of the segment base register */
-static uintptr_t
-get_segment_base(x86_reg segment, pid_t pid)
-{
-	uint64_t base = 0;
-	if (segment == X86_REG_FS) {
-		ptrace(PTRACE_ARCH_PRCTL, pid, ARCH_GET_FS, &base);
-	} else if (segment == X86_REG_GS) {
-		ptrace(PTRACE_ARCH_PRCTL, pid, ARCH_GET_GS, &base);
-	}
-	return base;
-}
-
 /* Calculates the effective address of a X86_OP_MEM */
 static uintptr_t
-calculate_effective_address(pid_t pid, cs_x86_op* op, struct user_regs_struct* regs)
+calculate_effective_address(pid_t pid, cs_x86_op* op, struct user_regs_struct* regs, uintptr_t fs, uintptr_t gs)
 {
 	// Get base register if available
 	uintptr_t base = 0;
@@ -46,8 +33,10 @@ calculate_effective_address(pid_t pid, cs_x86_op* op, struct user_regs_struct* r
 
 	// Handle segment base if segment register is used
 	uintptr_t segment = 0;
-	if (op->mem.segment == X86_REG_FS || op->mem.segment == X86_REG_GS) {
-		segment = get_segment_base(op->mem.segment, pid);
+	if (op->mem.segment == X86_REG_FS) {
+		segment = fs;
+	} else if (op->mem.segment == X86_REG_GS) {
+		segment = gs;
 	}
 
 	return base + index + displacement + segment;
@@ -150,7 +139,9 @@ heap_access(struct ctest_result* result,
 		}
 	}
 	else if (is_write)
+	{
 		__ctest_mem_set_initialized(alloc, address, op->size);
+	}
 	return 1;
 }
 
@@ -159,39 +150,45 @@ __ctest_mem_access_insn_hook(struct ctest_result* result,
                              struct user_regs_struct* regs,
                              cs_insn* insn)
 {
-	cs_x86_op* op = &(insn[0].detail->x86.operands[0]);
-	if (op->type == X86_OP_MEM) {
-		const int is_read = (op->access & CS_AC_READ) != 0;
-		const int is_write = (op->access & CS_AC_WRITE) != 0;
+	// For stuff like nop dword ptr [rax, rax]
+	if (insn[0].id == X86_INS_NOP)
+		return 1;
+	for (uint8_t i = 0; i < insn[0].detail->x86.op_count; ++i)
+	{
+		cs_x86_op* op = &(insn[0].detail->x86.operands[i]);
+		if (op->type == X86_OP_MEM) {
+			const int is_read = (op->access & CS_AC_READ) != 0;
+			const int is_write = (op->access & CS_AC_WRITE) != 0;
 
-		uintptr_t address = calculate_effective_address(result->child, op, regs);
-		struct ctest_map_entry* map = __ctest_mem_maps_get(&result->mem.maps, address);
-		/*
-		for (size_t i = 0; i < result->mem.maps.size; ++i) {
-		    printf("%llx-%llx %s\n", result->mem.maps.data[i].start,
-		    result->mem.maps.data[i].end, result->mem.maps.data[i].pathname);
-		}*/
-		/* Unmapped memory */
-		if (!map) {
-			__ctest_raise_parent_error(
-			  result,
-			  regs,
-			  "Attempt to %s %d bytes in unmapped memory: %s[0x%llx, 0x%llx]%s\n",
-			  access_name[is_read | (is_write << 1)],
-			  op->size,
-			  __ctest_color(CTEST_COLOR_BLUE),
-			  (void*)address,
-			  (void*)(address + op->size),
-			  __ctest_color(CTEST_COLOR_RESET));
-			__ctest_print_source_line(result, STDERR_FILENO, regs->rsp);
-			return 0;
-		}
-		// TODO: [stack], consider all maps not linked to a fd as heap
-		if (strcmp(map->pathname, "[heap]") == 0) {
-			if (!heap_access(result, regs, map, op, address, is_read, is_write))
+			uintptr_t address = calculate_effective_address(result->child, op, regs, result->child_fs, result->child_gs);
+			struct ctest_map_entry* map = __ctest_mem_maps_get(&result->mem.maps, address);
+			/*
+			   for (size_t i = 0; i < result->mem.maps.size; ++i) {
+			   printf("%llx-%llx %s\n", result->mem.maps.data[i].start,
+			   result->mem.maps.data[i].end, result->mem.maps.data[i].pathname);
+			   }*/
+			/* Unmapped memory */
+			if (!map) {
+				__ctest_raise_parent_error(
+						result,
+						regs,
+						"Attempt to %s %d bytes in unmapped memory: %s[0x%llx, 0x%llx]%s\n",
+						access_name[is_read | (is_write << 1)],
+						op->size,
+						__ctest_color(CTEST_COLOR_BLUE),
+						(void*)address,
+						(void*)(address + op->size),
+						__ctest_color(CTEST_COLOR_RESET));
+				__ctest_print_source_line(result, STDERR_FILENO, regs->rsp);
 				return 0;
+			}
+			// TODO: [stack], consider all maps not linked to a fd as heap
+			if (strcmp(map->pathname, "[heap]") == 0) {
+				if (!heap_access(result, regs, map, op, address, is_read, is_write))
+					return 0;
+			}
+			printf("Accessed memory: %p [%s]\n", (void*)address, map->pathname);
 		}
-		printf("Accessed memory: %p [%s]\n", (void*)address, map->pathname);
 	}
 	return 1;
 }

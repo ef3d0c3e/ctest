@@ -3,6 +3,7 @@
 #include "result.h"
 #include "signal.h"
 #include "tracer.h"
+#include <asm/prctl.h>
 #include <errno.h>
 #include <execinfo.h>
 #include <pthread.h>
@@ -46,6 +47,10 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 			exit(1);
 		}
 	}
+
+	// Get FS and GS registers
+	ptrace(PTRACE_ARCH_PRCTL, getpid(), ARCH_GET_FS, &result->child_fs);
+	ptrace(PTRACE_ARCH_PRCTL, getpid(), ARCH_GET_GS, &result->child_gs);
 
 	write(0, " -- Child --\n", 13);
 	_G_result = result;

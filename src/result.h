@@ -61,6 +61,8 @@ struct ctest_result
 	 * @brief Address of this struct in the child process
 	 */
 	uintptr_t child_result;
+	uintptr_t child_fs;
+	uintptr_t child_gs;
 	/**
 	 * @brief Flag set to 1 when the child is in the testing function
 	 */

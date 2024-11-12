@@ -16,6 +16,11 @@ grow(struct ctest_mem_arena* arena)
 	}
 }
 
+void __ctest_mem_allocation_free(struct ctest_mem_allocation* allocation)
+{
+	free(allocation->initialized_memory);
+}
+
 struct ctest_mem_arena
 __ctest_mem_arena_new()
 {
@@ -28,8 +33,9 @@ __ctest_mem_arena_new()
 void
 __ctest_mem_arena_free(struct ctest_mem_arena* arena)
 {
-	if (!arena->data)
-		free(arena->data);
+	for (size_t i = 0; i < arena->size; ++i)
+		__ctest_mem_allocation_free(&arena->data[i]);
+	free(arena->data);
 }
 
 int
@@ -39,6 +45,7 @@ __ctest_mem_arena_delete(struct ctest_mem_arena* arena, uintptr_t ptr)
 		if (arena->data[i].ptr != ptr)
 			continue;
 
+		__ctest_mem_allocation_free(&arena->data[i]);
 		for (size_t j = i + 1; j < arena->size; ++j)
 			arena->data[j - 1] = arena->data[j];
 		--arena->size;
@@ -135,7 +142,7 @@ __ctest_mem_is_initialized(struct ctest_mem_allocation* allocation,
 	for (uint8_t i = 0; i < read_width; ++i) {
 		const uint8_t word = allocation->initialized_memory[(address - allocation->ptr + i) / 8];
 		if (word & (1 << ((address - allocation->ptr + i) % 8)))
-			initialized += 0;
+			initialized += 1;
 	}
 
 	return initialized;
