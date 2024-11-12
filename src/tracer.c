@@ -3,6 +3,7 @@
 #include "error.h"
 #include "insn.h"
 #include "mem_access.h"
+#include "memory_management.h"
 #include "result.h"
 #include <asm/prctl.h>
 #include <asm/unistd_64.h>
@@ -20,9 +21,8 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 
-/* Graceful shutdown function */
-static void
-shutdown(struct ctest_result* result)
+void
+__ctest_tracer_shutdown(struct ctest_result* result)
 {
 	longjmp(result->jmp_end, 1);
 }
@@ -130,7 +130,7 @@ __ctest_tracer_start(struct ctest_result* result)
 
 		// Process insn, shut down on failure
 		if (!__ctest_insn_hook(result, &regs, insn_hook)) {
-			regs.rip = (uintptr_t)shutdown;
+			regs.rip = (uintptr_t)__ctest_tracer_shutdown;
 			regs.rdi = (uintptr_t)result->child_result;
 
 			ptrace(PTRACE_SETREGS, result->child, 0, &regs);

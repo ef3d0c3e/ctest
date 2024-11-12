@@ -183,18 +183,6 @@ __ctest_mem_is_initialized(struct ctest_mem_allocation* allocation,
                            uint8_t read_width);
 
 /**
- * @brief Adds a new allocation/deallocation to the arena
- *
- * The allocation is retrieved from @ref ctest_mem_msg_out and @ref ctest_mem_msg_in
- * In case of a deallocation, this function will move the allocation from the allocation arena to
- * the deallocation arena
- *
- * @param Result the result from which the allocation is retrieved
- */
-void
-__ctest_mem_process_allocation(struct ctest_result* result);
-
-/**
  * @brief Prints the arena state to a file descriptor
  *
  * @param result The result structure

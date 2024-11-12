@@ -120,22 +120,4 @@ struct ctest_mem __ctest_mem_new();
  */
 void __ctest_mem_free(struct ctest_mem* mem);
 
-/**
- * @brief Hooks called when a memory access is made
- *
- * @returns 1 If message_in needs to be processed for the next steps
- */
-int
-__ctest_mem_mem_hook(struct ctest_result* result, int access, struct user_regs_struct* regs);
-
-/**
- * @brief Hooks called when a memory management function is called
- *
- * Currently this is called for malloc/realloc and free
- *
- * @returns 1 If message_in needs to be processed for the next steps
- */
-int
-__ctest_mem_memman_hook(struct ctest_result* result, struct user_regs_struct* regs);
-
 #endif // CTEST_MEMORY_H

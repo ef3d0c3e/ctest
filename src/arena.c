@@ -42,6 +42,7 @@ __ctest_mem_arena_delete(struct ctest_mem_arena* arena, uintptr_t ptr)
 		for (size_t j = i + 1; j < arena->size; ++j)
 			arena->data[j - 1] = arena->data[j];
 		--arena->size;
+		return 1;
 	}
 	return 0;
 }
@@ -138,70 +139,6 @@ __ctest_mem_is_initialized(struct ctest_mem_allocation* allocation,
 	}
 
 	return initialized;
-}
-
-void
-__ctest_mem_process_allocation(struct ctest_result* result)
-{
-
-	struct ctest_mem_allocation data;
-	data.allocator = result->message_out.mem.allocator;
-	data.regs = result->message_out.mem.malloc.regs;
-	/* malloc */
-	if (data.allocator == (uintptr_t)malloc) {
-		if (result->mem.allocation_arena.size >= result->mem.allocation_arena.capacity)
-			grow(&result->mem.allocation_arena);
-
-		data.ptr = result->message_in.mem.malloc.ptr;
-		data.size = result->message_out.mem.malloc.regs.rdi;
-		data.initialized_memory = calloc(data.size / 8 + (data.size % 8 != 0), 1);
-		data.freed_rip = 0;
-		data.alloc_rip = result->rip_before_call;
-
-		__ctest_mem_arena_add(&result->mem.allocation_arena, data);
-	}
-	/* realloc */
-	else if (data.allocator == (uintptr_t)realloc) {
-		if (result->mem.allocation_arena.size >= result->mem.allocation_arena.capacity)
-			grow(&result->mem.allocation_arena);
-
-		data.ptr = result->message_in.mem.realloc.ptr;
-		data.size = result->message_out.mem.realloc.regs.rsi;
-
-		/* Mark the original allocation as freed & carry over initialized memory */
-		struct ctest_mem_allocation* original = __ctest_mem_arena_find(result, data.ptr);
-		// TODO... find the original allocation, if not found, use malloc_usable_size to consider
-		// all these bytes initialized
-		// data.initialized_memory = calloc(data.size / 8 + (data.size % 8 != 0), 1);
-		if (original) {
-			original->freed_rip = result->rip_before_call;
-
-		} else {
-			// data.initialized_memory = calloc(data.size / 8 + (data.size % 8 != 0), 1);
-		}
-
-		data.alloc_rip = result->rip_before_call;
-
-		__ctest_mem_arena_add(&result->mem.allocation_arena, data);
-	}
-	/* free */
-	else if (data.allocator == (uintptr_t)free) {
-		// Nothing to do
-		if (result->message_in.mem.free.ptr == 0)
-			return;
-		struct ctest_mem_allocation* data =
-		  __ctest_mem_arena_find(result, result->message_in.mem.free.ptr);
-		/* If found, move to the deallocation arena */
-		if (data) {
-			data->freed_rip = result->rip_before_call;
-			__ctest_mem_arena_add(&result->mem.deallocation_arena, *data);
-			__ctest_mem_arena_delete(&result->mem.allocation_arena, data->ptr);
-		}
-
-	} else {
-		fprintf(stderr, "%s: Unknown allocator: 0x%p\n", __FUNCTION__, (void*)data.allocator);
-		exit(1);
-	}
 }
 
 void

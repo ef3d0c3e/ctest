@@ -186,6 +186,7 @@ __ctest_mem_access_insn_hook(struct ctest_result* result,
 			__ctest_print_source_line(result, STDERR_FILENO, regs->rsp);
 			return 0;
 		}
+		// TODO: [stack], consider all maps not linked to a fd as heap
 		if (strcmp(map->pathname, "[heap]") == 0) {
 			if (!heap_access(result, regs, map, op, address, is_read, is_write))
 				return 0;
