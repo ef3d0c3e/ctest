@@ -118,7 +118,7 @@ __ctest_tracer_start(struct ctest_result* result)
 			continue;
 		// Process memory hooks results
 		else if (incoming_mman) {
-			__ctest_mem_arena_add(result);
+			__ctest_mem_process_allocation(result);
 			incoming_mman = 0;
 		}
 

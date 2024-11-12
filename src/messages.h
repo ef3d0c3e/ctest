@@ -9,6 +9,9 @@ enum ctest_color
 	CTEST_COLOR_GREEN,
 	CTEST_COLOR_BLUE,
 	CTEST_COLOR_YELLOW,
+	CTEST_COLOR_BOLD,
+	CTEST_COLOR_ITALIC,
+	CTEST_COLOR_UNDERLINE,
 	__CTEST_COLOR_SIZE,
 };
 
@@ -24,6 +27,9 @@ union ctest_colors_data
 		const char* green;
 		const char* blue;
 		const char* yellow;
+		const char* bold;
+		const char* italic;
+		const char* underline;
 	};
 	const char* colors[__CTEST_COLOR_SIZE];
 };

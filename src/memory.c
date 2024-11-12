@@ -9,13 +9,15 @@
 #include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <sys/shm.h>
+#include <malloc.h>
 #include <unistd.h>
 
 struct ctest_mem
 __ctest_mem_new()
 {
 	return (struct ctest_mem){
-		.arena = __ctest_mem_arena_new(),
+		.allocation_arena = __ctest_mem_arena_new(),
+		.deallocation_arena = __ctest_mem_arena_new(),
 		.in_hook = 0,
 		                       .malloc_settings = (union ctest_mem_allocator_settings){
 		                         .malloc = {
@@ -28,13 +30,17 @@ void
 __ctest_mem_free(struct ctest_mem* mem)
 {
 	__ctest_mem_maps_free(&mem->maps);
-	__ctest_mem_arena_free(&mem->arena);
+	__ctest_mem_arena_free(&mem->allocation_arena);
+	__ctest_mem_arena_free(&mem->deallocation_arena);
 }
 
 /* Malloc hook called by the child */
 static void*
 malloc_hook(struct ctest_result* result)
 {
+	// TODO: When malloc calls to mmap and s/brk, keep track of the new memory page as if it were heap, for direct mmap calls more checking needs to be done
+	// A dumbproof method is to reparse the pages after malloc() and mark the new pages as `heap`
+
 	// TODO: Apply malloc settings
 	const size_t size = result->message_out.mem.malloc.regs.rdi;
 	if (!size && result->mem.malloc_settings.malloc.fail_on_zero) {
@@ -50,15 +56,44 @@ malloc_hook(struct ctest_result* result)
 		exit(1);
 	}
 
-	// Fill with random data
-	for (size_t i = 0; i < size; ++i)
-		((unsigned char*)ptr)[i] = rand() % 255;
 	result->message_in.mem.malloc.ptr = (uintptr_t)ptr;
 	result->mem.in_hook = 0;
 
 	return ptr;
 }
 
+/* Realloc hook called by the child */
+static void*
+realloc_hook(struct ctest_result* result)
+{
+	// TODO: When malloc calls to mmap and s/brk, keep track of the new memory page as if it were heap, for direct mmap calls more checking needs to be done
+	// A dumbproof method is to reparse the pages after malloc() and mark the new pages as `heap`
+	// TODO: Apply malloc settings
+	const size_t original_ptr = result->message_out.mem.malloc.regs.rdi;
+	const size_t size = result->message_out.mem.malloc.regs.rsi;
+
+	result->message_in.mem.realloc.original_ptr = original_ptr;
+	if (!size && result->mem.malloc_settings.malloc.fail_on_zero) {
+		// TODO: Emit warning
+		result->message_in.mem.realloc.ptr = (uintptr_t)0;
+		result->mem.in_hook = 0;
+		return NULL;
+	}
+
+	result->message_in.mem.realloc.original_usable_size = malloc_usable_size((void*)original_ptr);
+	void* ptr = realloc((void*)original_ptr, size);
+	if (!ptr) {
+		write(result->messages, "realloc() failed unexpectedly\n", 29);
+		exit(1);
+	}
+
+	result->message_in.mem.realloc.ptr = (uintptr_t)ptr;
+	result->mem.in_hook = 0;
+
+	return ptr;
+}
+
+/* Free hook called by the child */
 static void
 free_hook(struct ctest_result* result)
 {
@@ -100,6 +135,11 @@ __ctest_mem_memman_hook(struct ctest_result* result, struct user_regs_struct* re
 		result->message_out.mem.allocator = (uintptr_t)malloc;
 		result->message_out.mem.malloc.regs = *regs;
 		regs->rip = (uintptr_t)malloc_hook;
+		regs->rdi = (uintptr_t)result->child_result;
+	} else if (regs->rip == (uintptr_t)realloc) {
+		result->message_out.mem.allocator = (uintptr_t)realloc;
+		result->message_out.mem.realloc.regs = *regs;
+		regs->rip = (uintptr_t)realloc_hook;
 		regs->rdi = (uintptr_t)result->child_result;
 	} else if (regs->rip == (uintptr_t)free) {
 		result->message_out.mem.allocator = (uintptr_t)free;

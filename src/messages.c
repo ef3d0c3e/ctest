@@ -7,6 +7,9 @@ static union ctest_colors_data _G_colors = { {
   "",
   "",
   "",
+  "",
+  "",
+  "",
 } };
 
 void
@@ -20,9 +23,15 @@ __ctest_colors_set(int enable)
 			.green = "\033[1;32m",
 			.blue = "\033[1;34m",
 			.yellow = "\033[1;33m",
+			.bold = "\033[1m",
+			.italic = "\033[3m",
+			.underline = "\033[4m",
 		};
 	else
 		_G_colors = (union ctest_colors_data){ {
+		  "",
+		  "",
+		  "",
 		  "",
 		  "",
 		  "",

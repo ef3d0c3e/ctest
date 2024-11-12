@@ -20,7 +20,7 @@ print_source_line_from_file(int fd, const char* source_file, int line_number)
 	char* line = NULL;
 	size_t sz = 0;
 	ssize_t read;
-	dprintf(fd, "File '%s', line %d:\n", source_file, line_number);
+	dprintf(fd, "%sFile '%s', line %d:%s\n", __ctest_color(CTEST_COLOR_UNDERLINE), source_file, line_number, __ctest_color(CTEST_COLOR_RESET));
 	while ((read = getline(&line, &sz, file)) != -1) {
 		if (current_line < line_number - 1) {
 			current_line++;

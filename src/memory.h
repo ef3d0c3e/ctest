@@ -16,10 +16,12 @@ union ctest_mem_msg_out
 	struct
 	{
 		uintptr_t allocator;
-		struct
+		union
 		{
+			struct {
 			struct user_regs_struct regs;
-		} malloc, realloc, free;
+			} malloc, realloc, free;
+		};
 	};
 };
 
@@ -33,7 +35,19 @@ union ctest_mem_msg_in
 	struct
 	{
 		uintptr_t ptr;
-	} malloc, realloc, free;
+	} malloc;
+
+	struct
+	{
+		uintptr_t ptr;
+		uintptr_t original_ptr;
+		size_t original_usable_size;
+	} realloc;
+
+	struct
+	{
+		uintptr_t ptr;
+	} free;
 };
 
 // TODO...
@@ -75,7 +89,11 @@ struct ctest_mem
 	/**
 	 * @brief The allocation arena
 	 */
-	struct ctest_mem_arena arena;
+	struct ctest_mem_arena allocation_arena;
+	/**
+	 * @brief The deallocation arena
+	 */
+	struct ctest_mem_arena deallocation_arena;
 	/**
 	 * @brief Flag set to 1 when a memory hook is running, so as to avoid recursive infinite loop.
 	 *
