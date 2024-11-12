@@ -5,12 +5,8 @@
 #include "messages.h"
 #include "result.h"
 #include "util.h"
-#include <asm/prctl.h>
-#include <errno.h>
+#include <capstone/x86.h>
 #include <string.h>
-#include <sys/ptrace.h>
-#include <sys/user.h>
-#include <unistd.h>
 
 /* Calculates the effective address of a X86_OP_MEM */
 static uintptr_t
@@ -153,6 +149,9 @@ __ctest_mem_access_insn_hook(struct ctest_result* result,
 	// For stuff like nop dword ptr [rax, rax]
 	if (insn[0].id == X86_INS_NOP)
 		return 1;
+	// Capstone treats LEA as reads
+	else if (insn[0].id == X86_INS_LEA)
+		return 1;
 	for (uint8_t i = 0; i < insn[0].detail->x86.op_count; ++i)
 	{
 		cs_x86_op* op = &(insn[0].detail->x86.operands[i]);
@@ -162,11 +161,10 @@ __ctest_mem_access_insn_hook(struct ctest_result* result,
 
 			uintptr_t address = calculate_effective_address(result->child, op, regs);
 			struct ctest_map_entry* map = __ctest_mem_maps_get(&result->mem.maps, address);
-			/*
-			   for (size_t i = 0; i < result->mem.maps.size; ++i) {
-			   printf("%llx-%llx %s\n", result->mem.maps.data[i].start,
-			   result->mem.maps.data[i].end, result->mem.maps.data[i].pathname);
-			   }*/
+			//for (size_t i = 0; i < result->mem.maps.size; ++i) {
+			//	printf("%llx-%llx %s\n", result->mem.maps.data[i].start,
+			//	result->mem.maps.data[i].end, result->mem.maps.data[i].pathname);
+			//}
 			/* Unmapped memory */
 			if (!map) {
 				__ctest_raise_parent_error(

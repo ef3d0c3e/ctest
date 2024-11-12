@@ -72,20 +72,13 @@ __ctest_raise_parent_error(struct ctest_result* result,
 	for (size_t i = 0; i < code_size; i++)
 		code[i] = ptrace(PTRACE_PEEKTEXT, result->child, addr + i, 0) & 0xff;
 
-	csh handle;
-	cs_insn* insn;
-	size_t count;
-
-	if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
-		fprintf(stderr, "Failed to initialize Capstone engine\n");
-		return;
-	}
 
 	fprintf(stderr,
 	        "%s * ASM dump:%s\n",
 	        __ctest_color(CTEST_COLOR_BLUE),
 	        __ctest_color(CTEST_COLOR_RESET));
-	count = cs_disasm(handle, code, code_size, regs->rip, 0, &insn);
+	cs_insn* insn;
+	const size_t count = cs_disasm(result->capstone_handle, code, code_size, regs->rip, 0, &insn);
 	if (count > 0) {
 		for (size_t i = 0; i < count; i++) {
 			if (i == 0) {
@@ -110,8 +103,6 @@ __ctest_raise_parent_error(struct ctest_result* result,
 	} else {
 		fprintf(stderr, "Failed to disassemble given code\n");
 	}
-
-	cs_close(&handle);
 
 	fprintf(
 	  stderr, "%sWHAT:%s ", __ctest_color(CTEST_COLOR_BLUE), __ctest_color(CTEST_COLOR_RESET));

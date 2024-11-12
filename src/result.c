@@ -50,6 +50,7 @@ __ctest_result_new(const struct ctest_unit* unit)
 		exit(1);
 	}
 	cs_option(mem->capstone_handle, CS_OPT_DETAIL, CS_OPT_ON);
+	cs_option(mem->capstone_handle, CS_OPT_SYNTAX, CS_OPT_SYNTAX_INTEL);
 
 	return mem;
 }
