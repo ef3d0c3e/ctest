@@ -36,8 +36,10 @@ get_call_target_address(const cs_insn* insn, struct user_regs_struct* regs)
 		}
 
 		// Handle the segment register if it's FS or GS
-		if (op.mem.segment == X86_REG_FS || op.mem.segment == X86_REG_GS) {
-			// segment_base = __ctest_util_get_register_value(op.mem.segment, regs);
+		if (op.mem.segment == X86_REG_FS) {
+			segment_base = regs->fs_base;
+		} else if (op.mem.segment == X86_REG_GS) {
+			segment_base = regs->gs_base;
 		}
 
 		// Calculate the effective address for indirect CALL

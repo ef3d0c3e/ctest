@@ -43,7 +43,7 @@ struct ctest_result
 	/**
 	 * @brief longjmp address to recover from an intentional crash
 	 *
-	 * Should not be used if @ref sigdata.handling is 0
+	 * @note Should not be used if @ref sigdata.handling is 0
 	 */
 	jmp_buf jmp_recover;
 	/**
@@ -61,8 +61,6 @@ struct ctest_result
 	 * @brief Address of this struct in the child process
 	 */
 	uintptr_t child_result;
-	uintptr_t child_fs;
-	uintptr_t child_gs;
 	/**
 	 * @brief Flag set to 1 when the child is in the testing function
 	 */

@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +22,8 @@
 #include <sys/wait.h>
 #include <threads.h>
 #include <unistd.h>
+#include <asm/prctl.h>
+#include <sys/prctl.h>
 
 /* Signals handler for non ptraced runtime */
 static struct ctest_result* _G_result;
@@ -47,10 +50,6 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 			exit(1);
 		}
 	}
-
-	// Get FS and GS registers
-	ptrace(PTRACE_ARCH_PRCTL, getpid(), ARCH_GET_FS, &result->child_fs);
-	ptrace(PTRACE_ARCH_PRCTL, getpid(), ARCH_GET_GS, &result->child_gs);
 
 	write(0, " -- Child --\n", 13);
 	_G_result = result;

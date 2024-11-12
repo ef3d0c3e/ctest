@@ -103,6 +103,6 @@ __ctest_print_registers(int fd, struct user_regs_struct* regs)
 	reg_pair(fd, "RBP", regs->rbp, "R13", regs->r13);
 	reg_pair(fd, "RSP", regs->rsp, "R14", regs->r14);
 	reg_pair(fd, "RIP", regs->rip, "R15", regs->r15);
-	reg_pair(fd, "FS", regs->fs, "GS", regs->gs);
+	reg_pair(fd, "FS", regs->fs_base, "GS", regs->gs_base);
 	reg_eflags(fd, regs->eflags);
 }

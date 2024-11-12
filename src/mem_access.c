@@ -14,7 +14,7 @@
 
 /* Calculates the effective address of a X86_OP_MEM */
 static uintptr_t
-calculate_effective_address(pid_t pid, cs_x86_op* op, struct user_regs_struct* regs, uintptr_t fs, uintptr_t gs)
+calculate_effective_address(pid_t pid, cs_x86_op* op, struct user_regs_struct* regs)
 {
 	// Get base register if available
 	uintptr_t base = 0;
@@ -34,9 +34,9 @@ calculate_effective_address(pid_t pid, cs_x86_op* op, struct user_regs_struct* r
 	// Handle segment base if segment register is used
 	uintptr_t segment = 0;
 	if (op->mem.segment == X86_REG_FS) {
-		segment = fs;
+		segment = regs->fs_base;
 	} else if (op->mem.segment == X86_REG_GS) {
-		segment = gs;
+		segment = regs->gs_base;
 	}
 
 	return base + index + displacement + segment;
@@ -160,7 +160,7 @@ __ctest_mem_access_insn_hook(struct ctest_result* result,
 			const int is_read = (op->access & CS_AC_READ) != 0;
 			const int is_write = (op->access & CS_AC_WRITE) != 0;
 
-			uintptr_t address = calculate_effective_address(result->child, op, regs, result->child_fs, result->child_gs);
+			uintptr_t address = calculate_effective_address(result->child, op, regs);
 			struct ctest_map_entry* map = __ctest_mem_maps_get(&result->mem.maps, address);
 			/*
 			   for (size_t i = 0; i < result->mem.maps.size; ++i) {
