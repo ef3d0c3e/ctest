@@ -1,7 +1,7 @@
 #ifndef CTEST_H
 #define CTEST_H
 
-#include "result.h"
+#include "../src/result.h"
 #include <stdint.h>
 #include <stdio.h>
 
@@ -74,7 +74,11 @@ struct ctest_unit
  * @note The test name should be a file-unique identifier, expect unreadable error messages
  * otherwise
  */
+#ifdef CTEST_UNITS_ENABLED
 #define CTEST_UNIT(__NAME, ...) __CTEST_UNIT(__NAME, __COUNTER__, __VA_ARGS__)
+#else
+#define CTEST_UNIT(__NAME, ...)
+#endif // CTEST_UNITS_ENABLED
 
 #define __CTEST_LOG(__FILE, __LINE, __MSG, ...)                                                  \
 	dprintf(__ctest_result->messages,                                                            \

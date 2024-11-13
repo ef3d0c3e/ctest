@@ -1,7 +1,7 @@
 #include "error.h"
 #include "messages.h"
 #include "result.h"
-#include "test.h"
+#include <ctest.h>
 #include <capstone/capstone.h>
 #include <inttypes.h>
 #include <signal.h>

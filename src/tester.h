@@ -1,7 +1,7 @@
 #ifndef CTEST_TESTER_H
 #define CTEST_TESTER_H
 
-#include "test.h"
+#include <ctest.h>
 
 struct ctest_data
 {

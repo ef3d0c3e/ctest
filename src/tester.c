@@ -51,7 +51,8 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 		}
 	}
 
-	write(0, " -- Child --\n", 13);
+	write(STDERR_FILENO, " -- Child --\n", 13);
+	dup2(result->stdout, STDOUT_FILENO);
 	_G_result = result;
 	if (!(unit->flags & CTEST_DISABLE_PTRACE))
 		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
@@ -60,7 +61,7 @@ child_start(const struct ctest_unit* unit, struct ctest_result* result)
 		unit->fn(result);
 	}
 	result->in_function = 0;
-	write(0, " -- Child --\n", 13);
+	write(STDERR_FILENO, " -- Child --\n", 13);
 	_G_result = NULL;
 	// TODO: Raise errors on unhandled stdout/stderr content
 	__ctest_result_print(result);
@@ -72,7 +73,6 @@ run_test(struct ctest_data* data, const struct ctest_unit* unit)
 {
 	__ctest_colors_set(1);
 	struct ctest_result* result = __ctest_result_new(unit);
-	// TODO: Redirect the child's stdout/stderr
 	pid_t pid = fork();
 	if (pid > 0) {
 		result->child = pid;

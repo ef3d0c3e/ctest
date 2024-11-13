@@ -186,8 +186,7 @@ __ctest_mem_access_insn_hook(struct ctest_result* result,
 			if (!heap_access(result, regs, map, op, address, is_read, is_write))
 				return 0;
 		}
-		printf("Accessed memory: %p [%s]\n", (void*)address, map->pathname);
-
+		//printf("Accessed memory: %p [%s]\n", (void*)address, map->pathname);
 	}
 	return 1;
 }

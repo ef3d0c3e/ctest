@@ -4,7 +4,7 @@ CFLAGS := -Wall -Wextra -rdynamic -std=c23 -g -D_GNU_SOURCE
 
 SOURCES := $(wildcard src/*.c)
 OBJECTS := $(addprefix objs/,$(SOURCES:.c=.o))
-INCLUDES := -I libs/capstone/include -I libs/elfutils
+INCLUDES := -Iincludes -I libs/capstone/include -I libs/elfutils
 
 objs/%.o : %.c
 	@mkdir -p $(@D)
