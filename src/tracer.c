@@ -30,16 +30,7 @@ __ctest_tracer_shutdown(struct ctest_result* result)
 static int
 insn_hook(struct ctest_result* result, struct user_regs_struct* regs, cs_insn* insn)
 {
-	// Check for call insn
-	int is_call = 0;
-	for (int i = 0; i < insn[0].detail->groups_count; ++i) {
-		if (insn[0].detail->groups[i] == CS_GRP_CALL) {
-			is_call = 1;
-			break;
-		}
-	}
-
-	if (is_call && !__ctest_calls_insn_hook(result, regs, insn))
+	if (!__ctest_calls_insn_hook(result, regs, insn))
 		return 0;
 	if (!__ctest_mem_access_insn_hook(result, regs, insn))
 		return 0;

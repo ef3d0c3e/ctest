@@ -105,6 +105,7 @@ main(int argc, char** argv)
 	};
 	iterate_tests(map, handle, &data);
 
+	dlclose(handle);
 	munmap(map, sb.st_size);
 	close(fd);
 	return 0;

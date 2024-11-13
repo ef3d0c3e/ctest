@@ -10,7 +10,7 @@
 
 /* Calculates the effective address of a X86_OP_MEM */
 static uintptr_t
-calculate_effective_address(pid_t pid, cs_x86_op* op, struct user_regs_struct* regs)
+calculate_effective_address(cs_x86_op* op, struct user_regs_struct* regs)
 {
 	// Get base register if available
 	uintptr_t base = 0;
@@ -155,38 +155,39 @@ __ctest_mem_access_insn_hook(struct ctest_result* result,
 	for (uint8_t i = 0; i < insn[0].detail->x86.op_count; ++i)
 	{
 		cs_x86_op* op = &(insn[0].detail->x86.operands[i]);
-		if (op->type == X86_OP_MEM) {
-			const int is_read = (op->access & CS_AC_READ) != 0;
-			const int is_write = (op->access & CS_AC_WRITE) != 0;
+		if (op->type != X86_OP_MEM)
+			continue;
+		const int is_read = (op->access & CS_AC_READ) != 0;
+		const int is_write = (op->access & CS_AC_WRITE) != 0;
 
-			uintptr_t address = calculate_effective_address(result->child, op, regs);
-			struct ctest_map_entry* map = __ctest_mem_maps_get(&result->mem.maps, address);
-			//for (size_t i = 0; i < result->mem.maps.size; ++i) {
-			//	printf("%llx-%llx %s\n", result->mem.maps.data[i].start,
-			//	result->mem.maps.data[i].end, result->mem.maps.data[i].pathname);
-			//}
-			/* Unmapped memory */
-			if (!map) {
-				__ctest_raise_parent_error(
-						result,
-						regs,
-						"Attempt to %s %d bytes in unmapped memory: %s[0x%llx, 0x%llx]%s\n",
-						access_name[is_read | (is_write << 1)],
-						op->size,
-						__ctest_color(CTEST_COLOR_BLUE),
-						(void*)address,
-						(void*)(address + op->size),
-						__ctest_color(CTEST_COLOR_RESET));
-				__ctest_print_source_line(result, STDERR_FILENO, regs->rsp);
-				return 0;
-			}
-			// TODO: [stack], consider all maps not linked to a fd as heap
-			if (strcmp(map->pathname, "[heap]") == 0) {
-				if (!heap_access(result, regs, map, op, address, is_read, is_write))
-					return 0;
-			}
-			printf("Accessed memory: %p [%s]\n", (void*)address, map->pathname);
+		uintptr_t address = calculate_effective_address(op, regs);
+		struct ctest_map_entry* map = __ctest_mem_maps_get(&result->mem.maps, address);
+		//for (size_t i = 0; i < result->mem.maps.size; ++i) {
+		//	printf("%llx-%llx %s\n", result->mem.maps.data[i].start,
+		//	result->mem.maps.data[i].end, result->mem.maps.data[i].pathname);
+		//}
+		/* Unmapped memory */
+		if (!map) {
+			__ctest_raise_parent_error(
+					result,
+					regs,
+					"Attempt to %s %d bytes in unmapped memory: %s[0x%llx, 0x%llx]%s\n",
+					access_name[is_read | (is_write << 1)],
+					op->size,
+					__ctest_color(CTEST_COLOR_BLUE),
+					(void*)address,
+					(void*)(address + op->size),
+					__ctest_color(CTEST_COLOR_RESET));
+			__ctest_print_source_line(result, STDERR_FILENO, regs->rsp);
+			return 0;
 		}
+		// TODO: [stack], consider all maps not linked to a fd as heap
+		if (strcmp(map->pathname, "[heap]") == 0) {
+			if (!heap_access(result, regs, map, op, address, is_read, is_write))
+				return 0;
+		}
+		printf("Accessed memory: %p [%s]\n", (void*)address, map->pathname);
+
 	}
 	return 1;
 }
