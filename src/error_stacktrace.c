@@ -4,7 +4,10 @@
 #include <errno.h>
 #include <elfutils/libdwfl.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/ptrace.h>
+#include <sys/reg.h>
+#include <sys/user.h>
 #include <unistd.h>
 
 static void
@@ -43,7 +46,6 @@ print_function_and_source_line_from_addr(int fd, Dwfl* dwfl, Dwarf_Addr pc)
 	return;
 }
 
-// Function to print the stack trace of the current process
 void
 __ctest_print_stack_trace(struct ctest_result* result, int fd, struct user_regs_struct* regs)
 {
@@ -66,23 +68,23 @@ __ctest_print_stack_trace(struct ctest_result* result, int fd, struct user_regs_
 	}
 
 	// Walk the stack frame
-	Dwarf_Addr pc = regs->rip;
-	Dwarf_Addr sp = regs->rsp;
 	static const size_t max_frames = 10;
 
-	for (size_t i = 0; i < max_frames && pc; ++i) {
-		dprintf(fd,
-		  " %s#%zu%s ", __ctest_color(CTEST_COLOR_YELLOW), i, __ctest_color(CTEST_COLOR_RESET));
-		print_function_and_source_line_from_addr(fd, dwfl, pc);
+	// FIXME Use libunwind
+	/*
+	   for (size_t i = 0; i < max_frames && pc; ++i) {
+	   dprintf(fd,
+	   " %s#%zu%s ", __ctest_color(CTEST_COLOR_YELLOW), i, __ctest_color(CTEST_COLOR_RESET));
+	   print_function_and_source_line_from_addr(fd, dwfl, pc);
 
-		// Read the next frame pointer and instruction pointer
-		pc = ptrace(PTRACE_PEEKDATA, result->child, sp + sizeof(void*), NULL);
-		sp = ptrace(PTRACE_PEEKDATA, result->child, sp, NULL);
+	// Read the next frame pointer and instruction pointer
+	pc = ptrace(PTRACE_PEEKDATA, result->child, sp + sizeof(void*), NULL);
+	sp = ptrace(PTRACE_PEEKDATA, result->child, sp, NULL);
 
-		// Stop on error
-		if (pc == (Dwarf_Addr)-1 || sp == (Dwarf_Addr)-1)
-			break;
-	}
+	// Stop on error
+	if (pc == (Dwarf_Addr)-1 || sp == (Dwarf_Addr)-1)
+	break;
+	}*/
 
 	dwfl_end(dwfl);
 }

@@ -19,7 +19,17 @@ struct ctest_result;
  *
  * @returns 0 If an error happened
  */
-int
-__ctest_buffer_at_least(struct ctest_result* result, struct user_regs_struct* regs, uintptr_t addr, size_t size, const char* action);
+int __ctest_buffer_at_least(struct ctest_result *result,
+                            struct user_regs_struct *regs, uintptr_t addr,
+                            size_t size, const char *action);
+
+int __ctest_buffer_is_initialized(struct ctest_result *result,
+                                  struct user_regs_struct *regs, uintptr_t addr,
+                                  size_t size, const char *action);
+
+int __ctest_buffer_set_initialized(struct ctest_result *result,
+                                   struct user_regs_struct *regs,
+                                   uintptr_t addr, size_t size,
+                                   const char *action);
 
 #endif // CTEST_BUFFER_H

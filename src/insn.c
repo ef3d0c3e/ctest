@@ -36,7 +36,7 @@ __ctest_insn_hook(struct ctest_result* result,
 	cs_insn* insn;
 	size_t count = cs_disasm(result->capstone_handle, code, MAX_INSN_LEN, regs->rip, 0, &insn);
 	if (count <= 0) {
-		printf("%s: Error decoding instructions\n", __FUNCTION__);
+		fprintf(stderr, "%s: Error decoding instructions\n", __FUNCTION__);
 		exit(1);
 	}
 

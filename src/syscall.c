@@ -3,6 +3,7 @@
 #include "result.h"
 #include "buffer.h"
 #include <asm/unistd_64.h>
+#include <execinfo.h>
 #include <unistd.h>
 
 static ssize_t
@@ -11,6 +12,14 @@ read_hook(int fd, struct ctest_result* result, size_t len)
 	const ssize_t n = read(fd, (void*)result->message_out.syscall.regs.rsi, len);
 	result->message_in.syscall.read.n = n;
 	result->message_in.syscall.read.buf = result->message_out.syscall.regs.rsi;
+
+	/*
+	void* bt[16];
+	int s = backtrace(bt, 16);
+	char **m = backtrace_symbols(bt, s);
+	for (int i = 0; i < s; ++i)
+		fprintf(stderr, "%d %s\n", i, m[i]);
+		*/
 	result->in_hook = 0;
 
 	return n;
@@ -28,8 +37,8 @@ __ctest_syscall_insn_hook(struct ctest_result* result, struct user_regs_struct* 
 		case __NR_read:
 			result->in_hook = 1;
 			result->message_out.syscall.regs = *regs;
-			// TODO: Add buffer checks (rsi)
-			__ctest_buffer_at_least(result, regs, regs->rsi, regs->rdx, "syscall read()");
+			if (!__ctest_buffer_at_least(result, regs, regs->rsi, regs->rdx, "read() syscall"))
+				return 0;
 			regs->rip = (uintptr_t)read_hook;
 			regs->rsi = result->child_result;
 			break;
