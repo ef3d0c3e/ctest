@@ -95,12 +95,6 @@ struct ctest_mem
 	 */
 	struct ctest_mem_arena deallocation_arena;
 	/**
-	 * @brief Flag set to 1 when a memory hook is running, so as to avoid recursive infinite loop.
-	 *
-	 * @note It is the hook's duty to set this flag to 0 when a hook finishes
-	 */
-	int in_hook;
-	/**
 	 * @param Settings for malloc
 	 */
 	union ctest_mem_allocator_settings malloc_settings;

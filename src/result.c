@@ -43,6 +43,7 @@ __ctest_result_new(const struct ctest_unit* unit)
 	mem->in_function = 0;
 	mem->sigdata = __ctest_signal_new();
 	mem->mem = __ctest_mem_new();
+	mem->in_hook = 0;
 
 	// Initialize capstone
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &mem->capstone_handle) != CS_ERR_OK) {

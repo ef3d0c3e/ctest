@@ -1,5 +1,6 @@
 #include "tracer.h"
 #include "calls.h"
+#include "syscall.h"
 #include "error.h"
 #include "insn.h"
 #include "mem_access.h"
@@ -30,11 +31,27 @@ __ctest_tracer_shutdown(struct ctest_result* result)
 static int
 insn_hook(struct ctest_result* result, struct user_regs_struct* regs, cs_insn* insn)
 {
+	if (!__ctest_syscall_insn_hook(result, regs, insn))
+		return 0;
 	if (!__ctest_calls_insn_hook(result, regs, insn))
 		return 0;
 	if (!__ctest_mem_access_insn_hook(result, regs, insn))
 		return 0;
 	return 1;
+}
+
+static void
+process_message(struct ctest_result* result)
+{
+	switch (result->message) {
+		case CTEST_MSG_MEM:
+			__ctest_mem_process_allocation(result);
+			break;
+		case CTEST_MSG_SYSCALL:
+			__ctest_syscall_process_result(result);
+			break;
+		default: break;
+	}
 }
 
 void
@@ -56,13 +73,9 @@ __ctest_tracer_start(struct ctest_result* result)
 		exit(1);
 	}
 
-	printf("Hooked result: %p\n", (void*)result);
-	printf("Shutdown jmp : %p\n", (void*)result->jmp_end);
-
 	// Populate the maps
 	result->mem.maps = __ctest_mem_maps_parse(result->child);
 
-	int incoming_mman = 0;
 	while (1) {
 		if (ptrace(PTRACE_SINGLESTEP, result->child, 0, 0) < 0) {
 			perror("ptrace(SINGLESTEP)");
@@ -102,15 +115,13 @@ __ctest_tracer_start(struct ctest_result* result)
 			}
 		}
 		// Do not run hooks before the tested function is running
-		if (!result->in_function)
+		// Wait for the current hook to finish
+		if (!result->in_function || result->in_hook)
 			continue;
-		// Wait for the current memory hook to finish
-		if (result->mem.in_hook)
-			continue;
-		// Process memory hooks results
-		else if (incoming_mman) {
-			__ctest_mem_process_allocation(result);
-			incoming_mman = 0;
+		// Process hook results
+		else if (result->message != CTEST_MSG_NONE) {
+			process_message(result);
+			result->message = CTEST_MSG_NONE;
 		}
 
 		struct user_regs_struct regs;
@@ -126,16 +137,19 @@ __ctest_tracer_start(struct ctest_result* result)
 
 			ptrace(PTRACE_SETREGS, result->child, 0, &regs);
 			break;
+		} else {
+			ptrace(PTRACE_SETREGS, result->child, 0, &regs);
 		}
 
+		// TODO: Move to syscall hooks
 		if (regs.rip == (uintptr_t)brk || regs.rip == (uintptr_t)sbrk) {
-			fprintf(stderr, "syscall [s]brk detected\n");
+			fprintf(stderr, "Unhandled syscall [s]brk detected\n");
 			exit(1);
 		}
-		// Memory management
+		// Memory management [TODO: Use the call hook, need to finish plt/got resolution]
 		if (regs.rip == (uintptr_t)malloc || regs.rip == (uintptr_t)realloc ||
 		    regs.rip == (uintptr_t)free) {
-			incoming_mman = __ctest_mem_memman_hook(result, &regs);
+			result->message = __ctest_mem_memman_hook(result, &regs) * CTEST_MSG_MEM;
 
 			ptrace(PTRACE_SETREGS, result->child, 0, &regs);
 		}

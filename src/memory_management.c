@@ -80,7 +80,7 @@ malloc_hook(struct ctest_result* result)
 	if (!size && result->mem.malloc_settings.malloc.fail_on_zero) {
 		// TODO: Emit warning
 		result->message_in.mem.malloc.ptr = (uintptr_t)0;
-		result->mem.in_hook = 0;
+		result->in_hook = 0;
 		return NULL;
 	}
 
@@ -91,7 +91,7 @@ malloc_hook(struct ctest_result* result)
 	}
 
 	result->message_in.mem.malloc.ptr = (uintptr_t)ptr;
-	result->mem.in_hook = 0;
+	result->in_hook = 0;
 
 	return ptr;
 }
@@ -110,7 +110,7 @@ realloc_hook(struct ctest_result* result)
 	if (!size && result->mem.malloc_settings.malloc.fail_on_zero) {
 		// TODO: Emit warning
 		result->message_in.mem.realloc.ptr = (uintptr_t)0;
-		result->mem.in_hook = 0;
+		result->in_hook = 0;
 		return NULL;
 	}
 
@@ -122,7 +122,7 @@ realloc_hook(struct ctest_result* result)
 	}
 
 	result->message_in.mem.realloc.ptr = (uintptr_t)ptr;
-	result->mem.in_hook = 0;
+	result->in_hook = 0;
 
 	return ptr;
 }
@@ -133,16 +133,13 @@ free_hook(struct ctest_result* result)
 {
 	free((void*)result->message_out.mem.free.regs.rdi);
 	result->message_in.mem.free.ptr = (uintptr_t)result->message_out.mem.free.regs.rdi;
-	result->mem.in_hook = 0;
+	result->in_hook = 0;
 }
 
 int
 __ctest_mem_memman_hook(struct ctest_result* result, struct user_regs_struct* regs)
 {
-	if (result->mem.in_hook)
-		return 0;
-
-	result->mem.in_hook = 1;
+	result->in_hook = 1;
 	// TODO: realloc
 	if (regs->rip == (uintptr_t)malloc) {
 		result->message_out.mem.allocator = (uintptr_t)malloc;

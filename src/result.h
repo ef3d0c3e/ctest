@@ -2,6 +2,7 @@
 #define CTEST_RESULT_H
 
 #include "memory.h"
+#include "syscall.h"
 #include "signal.h"
 #include <capstone/capstone.h>
 #include <elfutils/libdwfl.h>
@@ -78,6 +79,16 @@ struct ctest_result
 	 */
 	uintptr_t rip_before_call;
 
+
+	/**
+	 * @brief Messages from hooks
+	 */
+	enum {
+		CTEST_MSG_NONE = 0,
+		CTEST_MSG_MEM,
+		CTEST_MSG_SYSCALL,
+	} message;
+
 	/**
 	 * @brief Messages parent -> child
 	 *
@@ -86,6 +97,7 @@ struct ctest_result
 	union
 	{
 		union ctest_mem_msg_out mem;
+		union ctest_syscall_msg_out syscall;
 	} message_out;
 
 	/**
@@ -96,7 +108,15 @@ struct ctest_result
 	union
 	{
 		union ctest_mem_msg_in mem;
+		union ctest_syscall_msg_in syscall;
 	} message_in;
+
+	/**
+	 * @brief Flag set to 1 when a hook is running, so as to avoid recursive infinite loop.
+	 *
+	 * @note It is the hook's duty to set this flag to 0 when a hook finishes
+	 */
+	int in_hook;
 };
 
 /**

@@ -2,8 +2,10 @@
 #include "arena.h"
 #include "error.h"
 #include "mem_maps.h"
+#include "memory.h"
 #include "messages.h"
 #include "result.h"
+#include "signal.h"
 #include "util.h"
 #include <capstone/x86.h>
 #include <string.h>
@@ -136,6 +138,7 @@ heap_access(struct ctest_result* result,
 	}
 	else if (is_write)
 	{
+		dprintf(2, "Write to %p\n", address);
 		__ctest_mem_set_initialized(alloc, address, op->size);
 	}
 	return 1;
