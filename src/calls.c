@@ -96,78 +96,16 @@ void inspect_stack_variables(Dwfl_Module *module, Dwarf_Addr func_addr) {
 	}
 }
 */
-uintptr_t plt_start = 0;
-uintptr_t plt_end = 0;
-
-static int iter(Dwfl_Module *module, void **userdata, const char *module_name, Dwarf_Addr start, void *arg) {
-        Elf *elf = dwfl_module_getelf(module, NULL);
-        if (elf == NULL) {
-            fprintf(stderr, "Failed to get ELF for module: %s\n", module_name);
-            return DWARF_CB_OK;
-        }
-
-
-        size_t shstrndx;
-        if (elf_getshdrstrndx(elf, &shstrndx) != 0) {
-            fprintf(stderr, "Error getting section header string index for module: %s\n", module_name);
-            return DWARF_CB_OK;
-        }
-
-        Elf_Scn *scn = NULL;
-        while ((scn = elf_nextscn(elf, scn)) != NULL) {
-            GElf_Shdr shdr;
-            if (gelf_getshdr(scn, &shdr) != &shdr) {
-                fprintf(stderr, "Error reading section header in module: %s\n", module_name);
-                continue;
-            }
-
-            const char *section_name = elf_strptr(elf, shstrndx, shdr.sh_name);
-            if (section_name && strcmp(section_name, ".plt") == 0) {
-                plt_start = shdr.sh_addr;
-                plt_end = plt_start + shdr.sh_size;
-                printf("PLT section found in module %s: start = %lx, end = %lx\n", module_name, plt_start, plt_end);
-                return DWARF_CB_ABORT;
-            }
-        }
-        return DWARF_CB_OK;
-    }
-
-int find_plt_bounds(Dwfl *dwfl) {
-    dwfl_getmodules(dwfl, iter, NULL, 0);
-    return plt_start != 0 ? 0 : -1;
-}
 
 int
 __ctest_calls_insn_hook(struct ctest_result* result, struct user_regs_struct* regs, cs_insn* insn)
 {
-	/*Dwfl* dwfl;
-	Dwfl_Callbacks callbacks = {
-		.find_elf = dwfl_linux_proc_find_elf,
-		.find_debuginfo = dwfl_standard_find_debuginfo,
-	};
-
-	dwfl = dwfl_begin(&callbacks);
-	if (!dwfl) {
-		fprintf(stderr, "Failed to initialize Dwfl");
-		exit(1);
-	}
-
-	if (dwfl_linux_proc_report(dwfl, result->child) != 0) {
-		fprintf(stderr, "dwfl_linux_proc_report failed: %s\n", strerror(errno));
-		exit(1);
-	}
-
-	dwfl_end(dwfl);
-*/
 
 	for (int i = 0; i < insn[0].detail->groups_count; ++i) {
 		if (insn[0].detail->groups[i] != CS_GRP_CALL)
 			continue;
 		result->rip_before_call = regs->rip;
-		//uintptr_t fn_addr = get_call_target_address(&(insn[0].detail->x86.operands[i]), regs);
-		//find_plt_bounds(dwfl);
-		//printf("Call: %p|%p [%p, %p]\n", fn_addr, malloc, plt_start, plt_end);
-		//__ctest_raise_parent_error(result, regs, "HERE");
+		break;
 	}
 	return 1;
 }

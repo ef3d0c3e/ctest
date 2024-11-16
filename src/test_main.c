@@ -1,4 +1,5 @@
 #include "tester.h"
+#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <link.h>
@@ -103,6 +104,7 @@ main(int argc, char** argv)
 		.successes = 0,
 		.failures = 0,
 	};
+
 	iterate_tests(map, handle, &data);
 
 	dlclose(handle);

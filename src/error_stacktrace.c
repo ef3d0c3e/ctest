@@ -1,8 +1,9 @@
 #include "error.h"
 #include "messages.h"
 #include "result.h"
-#include <errno.h>
 #include <elfutils/libdwfl.h>
+#include <errno.h>
+#include <libunwind-ptrace.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
@@ -39,11 +40,52 @@ print_function_and_source_line_from_addr(int fd, Dwfl* dwfl, Dwarf_Addr pc)
 	GElf_Sym sym;
 	const char* symbol = dwfl_module_addrsym(module, pc, &sym, NULL);
 	if (symbol)
-		dprintf(fd, "%s%s()%s\n", __ctest_color(CTEST_COLOR_GREEN), symbol, __ctest_color(CTEST_COLOR_RESET));
+		dprintf(fd,
+		        "%s%s()%s\n",
+		        __ctest_color(CTEST_COLOR_GREEN),
+		        symbol,
+		        __ctest_color(CTEST_COLOR_RESET));
 	else
-		dprintf(fd, "%s<unknown>()%s\n", __ctest_color(CTEST_COLOR_GREEN), __ctest_color(CTEST_COLOR_RESET));
-	
+		dprintf(fd,
+		        "%s<unknown>()%s\n",
+		        __ctest_color(CTEST_COLOR_GREEN),
+		        __ctest_color(CTEST_COLOR_RESET));
+
 	return;
+}
+
+static int
+access_reg(unw_addr_space_t as, unw_regnum_t regnum, unw_word_t* val, int write, void* arg)
+{
+	pid_t pid = *(pid_t*)arg;
+	struct user_regs_struct regs;
+
+	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs) == -1) {
+		return -1;
+	}
+
+	if (write) {
+		errno = EINVAL; // Writing is unsupported in this scenario
+		return -1;
+	}
+
+	switch (regnum) {
+		case UNW_X86_64_RIP:
+			*val = regs.rip;
+			break;
+		case UNW_X86_64_RSP:
+			*val = regs.rsp;
+			break;
+		case UNW_X86_64_RBP:
+			*val = regs.rbp;
+			break;
+		// Map other registers as needed
+		default:
+			errno = EINVAL;
+			return -1;
+	}
+
+	return 0;
 }
 
 void
@@ -67,24 +109,40 @@ __ctest_print_stack_trace(struct ctest_result* result, int fd, struct user_regs_
 		exit(1);
 	}
 
-	// Walk the stack frame
-	static const size_t max_frames = 10;
+	// Setup libunwind
+	unw_addr_space_t addr_space = unw_create_addr_space(&_UPT_accessors, 0);
+	if (!addr_space) {
+		fprintf(stderr, "Failed to create libunwind address space\n");
+		exit(1);
+	}
 
-	// FIXME Use libunwind
-	/*
-	   for (size_t i = 0; i < max_frames && pc; ++i) {
-	   dprintf(fd,
-	   " %s#%zu%s ", __ctest_color(CTEST_COLOR_YELLOW), i, __ctest_color(CTEST_COLOR_RESET));
-	   print_function_and_source_line_from_addr(fd, dwfl, pc);
+	unw_set_caching_policy(addr_space, UNW_CACHE_GLOBAL);
+	void* upt_info = _UPT_create(result->child);
+	if (!upt_info) {
+		fprintf(stderr, "Failed to initialize libunwind UPT info\n");
+		exit(1);
+	}
 
-	// Read the next frame pointer and instruction pointer
-	pc = ptrace(PTRACE_PEEKDATA, result->child, sp + sizeof(void*), NULL);
-	sp = ptrace(PTRACE_PEEKDATA, result->child, sp, NULL);
+	unw_cursor_t cursor;
+	if (unw_init_remote(&cursor, addr_space, upt_info) < 0) {
+		fprintf(stderr, "Failed to initialize unwinding\n");
+		exit(1);
+	}
 
-	// Stop on error
-	if (pc == (Dwarf_Addr)-1 || sp == (Dwarf_Addr)-1)
-	break;
-	}*/
+	size_t i = 0;
+	while (unw_step(&cursor) > 0) {
+		unw_word_t ip, sp;
 
+		unw_get_reg(&cursor, UNW_REG_IP, &ip);
+		unw_get_reg(&cursor, UNW_REG_SP, &sp);
+
+		dprintf(fd,
+				" %s#%zu%s ", __ctest_color(CTEST_COLOR_YELLOW), i, __ctest_color(CTEST_COLOR_RESET));
+		print_function_and_source_line_from_addr(fd, dwfl, ip);
+		++i;
+	}
+
+	_UPT_destroy(upt_info);
+	unw_destroy_addr_space(addr_space);
 	dwfl_end(dwfl);
 }

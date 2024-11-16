@@ -14,6 +14,7 @@ $(NAME): $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) \
 		/home/baraquiel/Programming/ctests/libs/capstone/libcapstone.a \
 		-ldw -lelf \
+		-lunwind-ptrace -lunwind-generic -lunwind \
 		-o $(NAME)
 
 .PHONY: libs/capstone/libcapstone.a
