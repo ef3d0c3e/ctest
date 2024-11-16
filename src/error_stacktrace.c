@@ -128,6 +128,10 @@ __ctest_print_stack_trace(struct ctest_result* result, int fd, struct user_regs_
 		fprintf(stderr, "Failed to initialize unwinding\n");
 		exit(1);
 	}
+	if (unw_set_reg(&cursor, UNW_REG_IP, result->rip_before_call) < 0) {
+		fprintf(stderr, "Failed to set custom RIP\n");
+		exit(1);
+	}
 
 	size_t i = 0;
 	while (unw_step(&cursor) > 0) {
@@ -137,7 +141,10 @@ __ctest_print_stack_trace(struct ctest_result* result, int fd, struct user_regs_
 		unw_get_reg(&cursor, UNW_REG_SP, &sp);
 
 		dprintf(fd,
-				" %s#%zu%s ", __ctest_color(CTEST_COLOR_YELLOW), i, __ctest_color(CTEST_COLOR_RESET));
+		        " %s#%zu%s ",
+		        __ctest_color(CTEST_COLOR_YELLOW),
+		        i,
+		        __ctest_color(CTEST_COLOR_RESET));
 		print_function_and_source_line_from_addr(fd, dwfl, ip);
 		++i;
 	}

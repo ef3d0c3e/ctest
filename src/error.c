@@ -113,7 +113,10 @@ __ctest_raise_parent_error(struct ctest_result* result,
 	vfprintf(stderr, fmt, args);
 	va_end(args);
 
-	__ctest_print_source_line(result, STDERR_FILENO, regs->rip);
+	// If using current rip fails, print the last RIP, this works when a calls needs resolving in the PLT
+	if (!__ctest_print_source_line(result, STDERR_FILENO, regs->rip) && !__ctest_print_source_line(result, STDERR_FILENO, result->rip_before_call))
+		fprintf(stderr, "<Failed to get line information, likely no debug informations>\n");
+
 
 	// Stacktrace
 	fprintf(stderr,

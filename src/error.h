@@ -47,8 +47,10 @@ __ctest_print_registers(int fd, struct user_regs_struct* regs);
  * @param result The result structure
  * @param fd The file descriptor to print to
  * @param rip Instruction to print the line of
+ *
+ * @returns 1 If getting the line info succeeded, 0 otherwise
  */
-void
+int
 __ctest_print_source_line(struct ctest_result* result, int fd, uintptr_t rip);
 
 /**

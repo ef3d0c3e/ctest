@@ -1,18 +1,17 @@
 #include "error.h"
 #include "messages.h"
 #include "result.h"
-#include <errno.h>
 #include <elfutils/libdwfl.h>
+#include <errno.h>
 #include <string.h>
 
 /* Reads the file to memory and print lines in [line_number-1, line_number+1] */
-static void
+static int
 print_source_line_from_file(int fd, const char* source_file, int line_number)
 {
 	FILE* file = fopen(source_file, "r");
 	if (!file) {
-		perror("Error opening file");
-		return;
+		return 0;
 	}
 
 	int current_line = 1;
@@ -20,7 +19,12 @@ print_source_line_from_file(int fd, const char* source_file, int line_number)
 	char* line = NULL;
 	size_t sz = 0;
 	ssize_t read;
-	dprintf(fd, "%sFile '%s', line %d:%s\n", __ctest_color(CTEST_COLOR_UNDERLINE), source_file, line_number, __ctest_color(CTEST_COLOR_RESET));
+	dprintf(fd,
+	        "%sFile '%s', line %d:%s\n",
+	        __ctest_color(CTEST_COLOR_UNDERLINE),
+	        source_file,
+	        line_number,
+	        __ctest_color(CTEST_COLOR_RESET));
 	while ((read = getline(&line, &sz, file)) != -1) {
 		if (current_line < line_number - 1) {
 			current_line++;
@@ -49,9 +53,10 @@ print_source_line_from_file(int fd, const char* source_file, int line_number)
 	if (line)
 		free(line);
 	fclose(file);
+	return 1;
 }
 
-void
+int
 __ctest_print_source_line(struct ctest_result* result, int fd, uintptr_t rip)
 {
 	Dwfl* dwfl;
@@ -84,13 +89,19 @@ __ctest_print_source_line(struct ctest_result* result, int fd, uintptr_t rip)
 		Dwfl_Line* line = dwfl_module_getsrc(module, rip);
 		if (line) {
 			source_file = dwfl_lineinfo(line, &rip, &line_nr, NULL, NULL, NULL);
-			print_source_line_from_file(fd, source_file, line_nr);
-		} else
-			fprintf(stderr, "<Failed to get line information, likely no debug informations>\n");
+			if (!print_source_line_from_file(fd, source_file, line_nr)) {
+				dwfl_end(dwfl);
+				return 0;
+			}
+		} else {
+			dwfl_end(dwfl);
+			return 0;
+		}
 	} else {
 		fprintf(stderr, "Failed to get module information\n");
 		exit(1);
 	}
 
 	dwfl_end(dwfl);
+	return 1;
 }

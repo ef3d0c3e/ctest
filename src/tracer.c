@@ -1,11 +1,11 @@
 #include "tracer.h"
 #include "calls.h"
-#include "syscall.h"
 #include "error.h"
 #include "insn.h"
 #include "mem_access.h"
 #include "memory_management.h"
 #include "result.h"
+#include "syscall.h"
 #include <asm/prctl.h>
 #include <asm/unistd_64.h>
 #include <capstone/capstone.h>
@@ -50,7 +50,8 @@ process_message(struct ctest_result* result)
 		case CTEST_MSG_SYSCALL:
 			__ctest_syscall_process_result(result);
 			break;
-		default: break;
+		default:
+			break;
 	}
 }
 
