@@ -6,6 +6,7 @@
 #include <capstone/x86.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/ptrace.h>
 #include <sys/user.h>
 #include <elfutils/libdwfl.h>
 #include <elfutils/libdwelf.h>
@@ -16,18 +17,20 @@
 
 /* Get the call address of a call insn */
 static uintptr_t
-get_call_target_address(const cs_x86_op* op, struct user_regs_struct* regs)
+get_call_target_address(struct ctest_result* result, const cs_x86_op* op, struct user_regs_struct* regs)
 {
+	uintptr_t addr;
+
 	// Check for direct CALL (Immediate operand)
 	if (op->type == CS_OP_IMM) {
 		printf("-- Direct Call %p --\n", op->imm);
-		return op->imm;
+		addr = op->imm;
 	}
 
 	// Check for indirect CALL via register
 	else if (op->type == CS_OP_REG) {
 		printf("-- Reg Call --\n");
-		return __ctest_util_get_register_value(op->reg, regs);
+		addr = __ctest_util_get_register_value(op->reg, regs);
 	}
 
 	// Check for indirect CALL via memory
@@ -54,16 +57,99 @@ get_call_target_address(const cs_x86_op* op, struct user_regs_struct* regs)
 		}
 
 		// Calculate the effective address for indirect CALL
-		return segment_base + base_val + index_val + op->mem.disp;
+		addr = segment_base + base_val + index_val + op->mem.disp;
+        printf("-- Indirect Call via Memory --\n");
+	}
+	else
+	{
+		fprintf(stderr, "CALL instruction has an unsupported operand type\n");
+		exit(1);
 	}
 
-	fprintf(stderr, "CALL instruction has an unsupported operand type\n");
-	exit(1);
+	// Init dwfl
+	Dwfl* dwfl;
+	Dwfl_Callbacks callbacks = {
+		.find_elf = dwfl_linux_proc_find_elf,
+		.find_debuginfo = dwfl_standard_find_debuginfo,
+	};
+	dwfl = dwfl_begin(&callbacks);
+
+	if (dwfl_linux_proc_report(dwfl, result->child) != 0) {
+		fprintf(stderr, "dwfl_linux_proc_report failed: %s\n", strerror(errno));
+		exit(1);
+	}
+
+	if (dwfl_report_end(dwfl, NULL, NULL) != 0) {
+		fprintf(stderr, "dwfl_report_end failed: %s\n", strerror(errno));
+		exit(1);
+	}
+
+	Dwfl_Module* module = dwfl_addrmodule(dwfl, addr);
+	if (!module)
+	{
+		fprintf(stderr, "dwfl_addrmodule(/* dwfl */, %p) failed: %s\n", (void*)addr, strerror(errno));
+		exit(1);
+	}
+
+	// Attempt to relocate the address
+	Dwarf_Addr relocated_addr = addr;
+	if (dwfl_module_relocate_address(module, &relocated_addr) < 0) {
+		fprintf(stderr, "Failed to relocate address %p\n", (void *)addr);
+		return addr;
+	}
+
+	Dwarf_Addr base_addr = 0;
+	dwfl_module_info(module, NULL, &base_addr, NULL, NULL, NULL, NULL, NULL);
+	if (base_addr == 0)
+	{
+		fprintf(stderr, "Failed to get module base address %p\n", (void *)addr);
+		return addr;
+	}
+	printf("-- Module base address: %p --\n", (void *)base_addr);
+
+	// Adjust the GOT entry address
+	uintptr_t got_entry = base_addr + relocated_addr + 0x8; // Offset depends on architecture
+	printf("-- Calculated GOT entry address: %p --\n", (void *)got_entry);
+
+	// Validate GOT entry address and read its value
+	uintptr_t resolved_addr = ptrace(PTRACE_PEEKDATA, result->child, got_entry, NULL);
+	if (resolved_addr == (uintptr_t)-1) {
+		perror("Failed to resolve GOT entry");
+		return addr; // Fallback to original address
+	}
+
+	printf("-- Resolved address from GOT: %p --\n", (void *)resolved_addr);
+	return resolved_addr;
 }
 
+void inspect_stack_variables(struct ctest_result* result, Dwarf_Addr func_addr) {
+	// Init dwfl
+	Dwfl* dwfl;
+	Dwfl_Callbacks callbacks = {
+		.find_elf = dwfl_linux_proc_find_elf,
+		.find_debuginfo = dwfl_standard_find_debuginfo,
+	};
+	dwfl = dwfl_begin(&callbacks);
+
+	if (dwfl_linux_proc_report(dwfl, result->child) != 0) {
+		fprintf(stderr, "dwfl_linux_proc_report failed: %s\n", strerror(errno));
+		exit(1);
+	}
+
+	if (dwfl_report_end(dwfl, NULL, NULL) != 0) {
+		fprintf(stderr, "dwfl_report_end failed: %s\n", strerror(errno));
+		exit(1);
+	}
+
+	Dwfl_Module* module = dwfl_addrmodule(dwfl, func_addr);
+	GElf_Sym sym;
+	const char *symbol_name = dwfl_module_addrsym(module, func_addr, &sym, NULL);
+	if (!symbol_name) {
+		fprintf(stderr, "Failed to find symbol for address: %lx\n", func_addr);
+		//exit(1);
+	}
+	printf("Found symbol: %s\n", symbol_name);
 /*
-void inspect_stack_variables(Dwfl_Module *module, Dwarf_Addr func_addr) {
-	Dwarf_Die *func_die = NULL;
 	if (dwfl_module_addrsym(module, func_addr, &func_die, NULL) != NULL) {
 		Dwarf_Die child;
 		if (dwarf_child(func_die, &child) == 0) {
@@ -94,8 +180,9 @@ void inspect_stack_variables(Dwfl_Module *module, Dwarf_Addr func_addr) {
 			} while (dwarf_siblingof(&child, &child) == 0);
 		}
 	}
+	*/
+	dwfl_end(dwfl);
 }
-*/
 
 int
 __ctest_calls_insn_hook(struct ctest_result* result, struct user_regs_struct* regs, cs_insn* insn)
@@ -105,6 +192,7 @@ __ctest_calls_insn_hook(struct ctest_result* result, struct user_regs_struct* re
 		if (insn[0].detail->groups[i] != CS_GRP_CALL)
 			continue;
 		result->rip_before_call = regs->rip;
+		inspect_stack_variables(result, get_call_target_address(result, &insn[0].detail->x86.operands[i], regs));
 		break;
 	}
 	return 1;

@@ -1,18 +1,19 @@
-#include "test.h"
+#include "includes/ctest.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
-void* f()
+void g()
+{}
+
+void f()
 {
-	return malloc(256);
+	//char *buf = malloc(16);
+	//read(1, buf, 17);
+	//int x = 7;
 }
 
 CTEST_UNIT(test, {
-	char *s = 0;
-	s[0] = rand();
-	s[1] = 2;
-	s[2] = 3;
-	((int*)s)[1] = 0x12345678;
+		f();
 })
