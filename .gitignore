@@ -1,3 +1,4 @@
 docs/*
-objs/*
-a.so
+.cache/*
+build/*
+compile_commands.json
