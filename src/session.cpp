@@ -3,12 +3,15 @@
 
 using namespace ctest;
 
-session::session()
+session::session():
+	dwfl_handle{NULL}
 {
+	// Init capstone
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &capstone_handle) == CS_ERR_OK)
 		throw exception("Failed to initialize capstone");
 	cs_option(capstone_handle, CS_OPT_DETAIL, CS_OPT_ON);
 	cs_option(capstone_handle, CS_OPT_SYNTAX, CS_OPT_SYNTAX_INTEL);
 }
 
-session::~session() {}
+session::~session() {
+}

@@ -15,6 +15,8 @@ target_link_libraries(${PROJECT_NAME}
 	elf
 	unwind-ptrace
 	unwind-generic
-	unwind)
+	unwind
+	dl
+	pthread)
 
 

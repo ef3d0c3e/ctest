@@ -12,6 +12,11 @@ class session
 	 */
 	csh capstone_handle;
 
+	/**
+	 * @brief Handle for dwfl
+	 */
+	Dwfl *dwfl_handle;
+
 	public:
 	session();
 	~session();
