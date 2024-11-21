@@ -1,14 +1,13 @@
 #include "session.hpp"
 #include "colors.hpp"
 #include "exceptions.hpp"
-#include <condition_variable>
 #include <csignal>
 #include <fmt/core.h>
 #include <iostream>
-#include <mutex>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 using namespace ctest;
 
@@ -17,7 +16,12 @@ session::session(const ctest_unit* unit)
   , dwfl_handle{ NULL }
 {
 	// Init test_data
-	test_data = (ctest_data*)mmap(NULL, sizeof(struct ctest_data), PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
+	test_data = (ctest_data*)mmap(NULL,
+	                              sizeof(struct ctest_data),
+	                              PROT_READ | PROT_WRITE,
+	                              MAP_ANON | MAP_SHARED,
+	                              -1,
+	                              0);
 	test_data->in_function = 0;
 	test_data->message_fd = memfd_create("child_message", 0);
 
@@ -35,7 +39,28 @@ session::~session()
 	munmap(test_data, sizeof(ctest_data));
 }
 
-void session::child_start()
+void
+session::tracer_start()
+{
+	if (ptrace(PTRACE_ATTACH, child, NULL, NULL) < 0) {
+		perror("ptrace(ATTACH)");
+		exit(1);
+	}
+
+	int status;
+	if (waitpid(child, &status, 0) != child) {
+		std::cerr << "Failed to ptrace program" << std::endl;
+		exit(1);
+	}
+
+	if (ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_TRACESYSGOOD) < 0) {
+		perror("ptrace(SETOPTIONS)");
+		exit(1);
+	}
+}
+
+void
+session::child_start()
 {
 	child_session = (uintptr_t)this;
 	stdout = memfd_create("child_stdout", 0);
@@ -45,13 +70,11 @@ void session::child_start()
 
 	if (!(unit->flags & CTEST_DISABLE_PTRACE))
 		ptrace(PTRACE_TRACEME);
-	
+
 	// Don't use printf as it calls to malloc()
 	write(test_data->message_fd, " -- Begin Trace --\n", 15);
 	if (!setjmp(jmp_exit))
-	{
 		unit->fn(test_data);
-	}
 	write(test_data->message_fd, " -- End Trace --\n", 13);
 	test_data->in_function = 0;
 }
@@ -63,8 +86,7 @@ session::start()
 
 	child = fork();
 	if (child > 0) {
-		std::cout << format("thisptr={c_red}{0:p}{c_reset}", (void*)this) << std::endl;
-		//__ctest_tracer_start(result);
+		tracer_start();
 		return true;
 	} else {
 		child_start();

@@ -7,6 +7,9 @@
 #include <elfutils/libdwfl.h>
 
 namespace ctest {
+/**
+ * @brief The session is what manages the traced program via ptrace
+ */
 class session
 {
 	/**
@@ -53,6 +56,10 @@ class session
 	jmp_buf jmp_recover;
 
 	/**
+	 * @brief The tracer's entry point
+	 */
+	void tracer_start();
+	/**
 	 * @brief The child's entry point
 	 */
 	void child_start();
@@ -61,6 +68,11 @@ public:
 	session(const ctest_unit* unit);
 	~session();
 
+	/**
+	 * @brief Starts the debugging session
+	 *
+	 * @returns true When the parent returns, false when the child returns
+	 */
 	bool start();
 }; // class session
 } // namespace ctest
