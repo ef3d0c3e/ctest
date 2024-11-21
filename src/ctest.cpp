@@ -20,7 +20,8 @@ iterate_tests(const ElfW(Ehdr) * ehdr, void* handle)
 
 	char* strtab = NULL;
 	for (int i = 0; i < ehdr->e_shnum; i++) {
-		if (shdr[i].sh_type & SHT_SYMTAB && strcmp(shstrtab + shdr[i].sh_name, ".strtab") == 0) {
+		if (shdr[i].sh_type & SHT_SYMTAB &&
+		    strcmp(shstrtab + shdr[i].sh_name, ".strtab") == 0) {
 			strtab = (char*)ehdr + shdr[i].sh_offset;
 		}
 	}
@@ -28,7 +29,8 @@ iterate_tests(const ElfW(Ehdr) * ehdr, void* handle)
 		throw ctest::exception("Failed to locate .strtab");
 
 	for (int i = 0; i < ehdr->e_shnum; i++) {
-		if (!(shdr[i].sh_type & SHT_SYMTAB) || strcmp(shstrtab + shdr[i].sh_name, ".symtab") != 0)
+		if (!(shdr[i].sh_type & SHT_SYMTAB) ||
+		    strcmp(shstrtab + shdr[i].sh_name, ".symtab") != 0)
 			continue;
 
 		ElfW(Sym)* sym = (ElfW(Sym)*)((char*)ehdr + shdr[i].sh_offset);
@@ -37,11 +39,21 @@ iterate_tests(const ElfW(Ehdr) * ehdr, void* handle)
 			if (!(sym[j].st_info & STT_OBJECT) ||
 			    !std::string_view(name).starts_with("__ctest_unit_"))
 				continue;
-			const ctest_unit* unit = reinterpret_cast<const ctest_unit*>(dlsym(handle, name));
+			const ctest_unit* unit =
+			  reinterpret_cast<const ctest_unit*>(dlsym(handle, name));
 			if (!unit)
-				throw ctest::exception(std::format("Failed to dlsym symbol '{}': {}", name, dlerror()));
-			ctest::session session{unit};
-			session.start();
+				throw ctest::exception(std::format(
+				  "Failed to dlsym symbol '{}': {}", name, dlerror()));
+			ctest::session* session = new (mmap(NULL,
+			                                    sizeof(ctest::session),
+			                                    PROT_READ | PROT_WRITE,
+			                                    MAP_ANON | MAP_SHARED,
+			                                    -1,
+			                                    0)) ctest::session(unit);
+			if (!session->start())
+				return;
+			session->~session();
+			munmap(session, sizeof(ctest::session));
 		}
 	}
 }
@@ -77,7 +89,8 @@ main(int argc, char** argv)
 		void* handle = dlopen(argv[1], RTLD_NOW);
 		if (!handle) {
 			close(fd);
-			throw ctest::exception(std::format("Failed to dlopen '{}': {}", argv[1], dlerror()));
+			throw ctest::exception(
+			  std::format("Failed to dlopen '{}': {}", argv[1], dlerror()));
 		}
 
 		iterate_tests(reinterpret_cast<const ElfW(Ehdr)*>(map), handle);

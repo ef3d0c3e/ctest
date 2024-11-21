@@ -6,8 +6,11 @@ using namespace ctest;
 
 exception::exception(std::string&& message, std::source_location&& loc)
 {
-	m_what =
-	  std::format("{}#{}@{}:\n{}", loc.file_name(), loc.function_name(), loc.line(), message);
+	m_what = std::format("{}#{}@{}:\n{}",
+	                     loc.file_name(),
+	                     loc.function_name(),
+	                     loc.line(),
+	                     message);
 
 	void* bt[16];
 	int n = backtrace(bt, 16);

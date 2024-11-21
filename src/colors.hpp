@@ -1,8 +1,10 @@
 #ifndef CTEST_COLORS_HPP
 #define CTEST_COLORS_HPP
 
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <string>
+#include <string_view>
 
 namespace ctest {
 union colors
@@ -48,7 +50,7 @@ extern colors _g_colors;
 auto
 format(std::string_view fmt, auto&&... ts)
 {
-	return fmt::format(fmt,
+	return fmt::format(fmt::runtime(fmt),
 	                   fmt::arg("c_reset", _g_colors.named.reset),
 	                   fmt::arg("c_red", _g_colors.named.red),
 	                   fmt::arg("c_green", _g_colors.named.green),
