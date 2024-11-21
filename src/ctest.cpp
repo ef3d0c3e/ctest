@@ -37,10 +37,11 @@ iterate_tests(const ElfW(Ehdr) * ehdr, void* handle)
 			if (!(sym[j].st_info & STT_OBJECT) ||
 			    !std::string_view(name).starts_with("__ctest_unit_"))
 				continue;
-			void* unit = dlsym(handle, name);
+			const ctest_unit* unit = reinterpret_cast<const ctest_unit*>(dlsym(handle, name));
 			if (!unit)
-				throw ctest::exception(std::format("Failed to locale symbol '{}': {}", name, dlerror()));
-			// run_test(data, unit);
+				throw ctest::exception(std::format("Failed to dlsym symbol '{}': {}", name, dlerror()));
+			ctest::session session{unit};
+			session.start();
 		}
 	}
 }
@@ -67,7 +68,7 @@ main(int argc, char** argv)
 			  std::format("Failed to stat '{}': {}", argv[1], strerror(errno)));
 		}
 		void* map = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-		if (map == (void*)-1) {
+		if (map == MAP_FAILED) {
 			close(fd);
 			throw ctest::exception(
 			  std::format("Failed to mmap '{}': {}", argv[1], strerror(errno)));

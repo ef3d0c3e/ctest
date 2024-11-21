@@ -5,3 +5,6 @@
 	path = libs/elfutils
 	url = git://sourceware.org/git/elfutils.git
 	branch = main
+[submodule "libs/fmt"]
+	path = libs/fmt
+	url = https://github.com/fmtlib/fmt

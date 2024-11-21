@@ -3,8 +3,8 @@
 
 using namespace ctest;
 
-session::session():
-	dwfl_handle{NULL}
+session::session(const ctest_unit* unit):
+	unit{unit}, dwfl_handle{NULL}
 {
 	// Init capstone
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &capstone_handle) == CS_ERR_OK)
@@ -14,4 +14,9 @@ session::session():
 }
 
 session::~session() {
+}
+
+void session::start()
+{
+
 }
