@@ -1,14 +1,13 @@
-#include "memory.hpp"
+#include "maps.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
-using namespace ctest;
+using namespace ctest::mem;
 
 void
-map::maps::parse(pid_t pid)
+maps::parse(pid_t pid)
 {
-
 	auto parse_hex16 = [](char* it, uintptr_t* value) -> char* {
 		*value = 0;
 		while ((*it >= '0' && *it <= '9') || (*it >= 'a' && *it <= 'f')) {
@@ -39,6 +38,7 @@ map::maps::parse(pid_t pid)
 		return it + 4;
 	};
 
+	entries.clear();
 	char pathbuf[256];
 	snprintf(pathbuf, sizeof(pathbuf), "/proc/%d/maps", pid);
 	FILE* f = fopen(pathbuf, "ro");

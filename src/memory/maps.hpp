@@ -1,11 +1,11 @@
-#ifndef CTEST_MEMORY_HPP
-#define CTEST_MEMORY_HPP
+#ifndef CTEST_MEMORY_MAPS_H
+#define CTEST_MEMORY_MAPS_H
 
+#include <cstddef>
 #include <cstdint>
 #include <sys/types.h>
 #include <vector>
-namespace ctest {
-namespace map {
+namespace ctest::mem {
 /**
  * @brief Access flags for maps
  */
@@ -62,14 +62,6 @@ public:
 	 */
 	void parse(pid_t pid);
 }; // class maps
-} // namespace map
+} // namespace ctest::mem
 
-class memory
-{
-	map::maps maps;
-
-public:
-}; // class memory
-} // namespace ctest
-
-#endif // CTEST_MEMORY_HPP
+#endif // CTEST_MEMORY_MAPS_H
