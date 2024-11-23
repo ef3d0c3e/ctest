@@ -1,14 +1,25 @@
 #ifndef CTEST_TRACER_HPP
 #define CTEST_TRACER_HPP
 
+#include "insn.hpp"
+
 namespace ctest {
-class session;
+
+struct session;
 /**
  * The class responsible for ptracing the program
  */
 class tracer
 {
+	/**
+	 * @brief The debug session
+	 */
 	ctest::session& session;
+
+	/**
+	 * @brief The instruction hooks
+	 */
+	insn_hook insn_hooks;
 
 	/**
 	 * @brief Handles sigsegv, based on whether the tracer should make the child recover or not

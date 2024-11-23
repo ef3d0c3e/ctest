@@ -10,6 +10,7 @@
 #include <thread>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <utility>
 
 using namespace ctest;
 
@@ -39,6 +40,7 @@ session::~session()
 {
 	if (dwfl_handle)
 		dwfl_end(dwfl_handle);
+	cs_close(&capstone_handle);
 }
 
 void
@@ -79,10 +81,10 @@ void
 session::child_start()
 {
 	child_session = (uintptr_t)this;
-	//stdout = memfd_create("child_stdout", 0);
-	//dup2(stdout, STDOUT_FILENO);
-	//stderr = memfd_create("child_stderr", 0);
-	//dup2(stderr, STDERR_FILENO);
+	stdout = memfd_create("child_stdout", 0);
+	dup2(stdout, STDOUT_FILENO);
+	stderr = memfd_create("child_stderr", 0);
+	dup2(stderr, STDERR_FILENO);
 
 	while (trace_status.load() != 1)
 		std::this_thread::sleep_for(std::chrono::milliseconds{5});
@@ -92,13 +94,14 @@ session::child_start()
 
 
 	// Don't use printf as it calls to malloc()
-	write(1, " -- Begin Trace --\n", 19);
+	write(test_data.message_fd, " -- Begin Trace --\n", 19);
 	if (!setjmp(jmp_exit))
 	{
 		unit->fn(&test_data);
 	}
 	test_data.in_function = 0;
 	write(test_data.message_fd, " -- End Trace --\n", 17);
+	std::_Exit(0);
 }
 
 bool
@@ -113,6 +116,6 @@ session::start()
 		return true;
 	} else {
 		child_start();
-		return false;
 	}
+	std::unreachable();
 }

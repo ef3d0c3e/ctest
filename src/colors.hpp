@@ -6,6 +6,8 @@
 #include <string_view>
 
 namespace ctest {
+using namespace std::literals;
+
 union colors
 {
 	struct

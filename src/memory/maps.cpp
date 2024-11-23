@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fmt/format.h>
+#include <iostream>
 #include <string>
 
 using namespace ctest::mem;
@@ -101,7 +102,7 @@ maps::parse(pid_t pid)
 		size_t it_len = strlen(it);
 		ent.pathname = std::string(it, it + it_len - 1);
 
-		entries.insert({ range{ ent.start, ent.end }, ent });
+		entries.insert({ range{ ent.start, ent.end }, std::move(ent) });
 	}
 	if (line)
 		free(line);
@@ -112,8 +113,11 @@ maps::parse(pid_t pid)
 std::optional<std::reference_wrapper<map_entry>>
 maps::get(uintptr_t address)
 {
+	// FIXME: This is not right...
 	auto it = entries.lower_bound(range{ address, address });
-	if (it != entries.begin() && (--it)->first.end <= address)
+	if (it == entries.begin() || --it == entries.begin())
+		return {};
+	if ((--it)->first.end <= address)
 		return { it->second };
 	return {};
 }

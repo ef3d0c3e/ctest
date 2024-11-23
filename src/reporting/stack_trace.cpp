@@ -81,7 +81,7 @@ ctest::report::stack_trace(const session& session, uintptr_t pc, size_t limit)
 		unw_get_reg(&cursor, UNW_REG_IP, &ip);
 		unw_get_reg(&cursor, UNW_REG_SP, &sp);
 
-		std::cerr << format(" {c_yellow}#{0}{c_reset} {1}\n",
+		std::cerr << format(" {c_yellow}#{0}{c_reset} {1}\n"sv,
 		                    i,
 		                    get_function_detail(session, ip));
 		++i;

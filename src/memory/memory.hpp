@@ -7,7 +7,7 @@
 
 namespace ctest
 {
-	class session;
+	struct session;
 } // namespace ctest
 
 namespace ctest::mem {
@@ -37,10 +37,11 @@ struct mem_access
 	 * @brief The type of access
 	 */
 	access_type access;
+
 	/**
-	 * @brief Registers during access
+	 * @brief Returns the access name
 	 */
-	const user_regs_struct& regs;
+	std::string_view access_name() const;
 };
 
 class memory
@@ -50,7 +51,16 @@ class memory
 	mem::maps maps;
 	mem::heap heap;
 public:
-	void process_access(class ctest::session& session, mem_access&& access);
+	/**
+	 * @brief Process memory access hooks
+	 *
+	 * @param session The debugging session
+	 * @param regs Program registers
+	 * @param access Memory access
+	 *
+	 * @return 1 On success, 0 on failure
+	 */
+	[[nodiscard]] bool process_access(ctest::session& session, const user_regs_struct& regs, mem_access&& access);
 }; // class memory
 } // namespace ctest::mem
 

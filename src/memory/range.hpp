@@ -15,7 +15,9 @@ struct range
 	 */
 	uintptr_t start, end;
 
-	auto operator<=>(const range& other) const = default;
+	auto operator<=>(const range& other) const {
+		return start <=> other.start;
+	}
 }; // struct range
 } // namespace ctest::mem
 
