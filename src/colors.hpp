@@ -3,7 +3,6 @@
 
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <string>
 #include <string_view>
 
 namespace ctest {
@@ -51,6 +50,7 @@ auto
 format(std::string_view fmt, auto&&... ts)
 {
 	return fmt::format(fmt::runtime(fmt),
+	                   std::forward<decltype(ts)>(ts)...,
 	                   fmt::arg("c_reset", _g_colors.named.reset),
 	                   fmt::arg("c_red", _g_colors.named.red),
 	                   fmt::arg("c_green", _g_colors.named.green),
@@ -58,8 +58,7 @@ format(std::string_view fmt, auto&&... ts)
 	                   fmt::arg("c_yellow", _g_colors.named.yellow),
 	                   fmt::arg("c_bold", _g_colors.named.bold),
 	                   fmt::arg("c_italic", _g_colors.named.italic),
-	                   fmt::arg("c_underline", _g_colors.named.underline),
-	                   std::forward<decltype(ts)>(ts)...);
+	                   fmt::arg("c_underline", _g_colors.named.underline));
 }
 
 } // ctest

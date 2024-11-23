@@ -7,6 +7,7 @@
 #include "tracer.hpp"
 #include <sys/mman.h>
 #include <sys/ptrace.h>
+#include <thread>
 #include <unistd.h>
 #include <sys/wait.h>
 
@@ -17,14 +18,15 @@ session::session(const ctest_unit* unit)
   , dwfl_handle{ NULL }
 {
 	// Init test_data
-	test_data = (ctest_data*)mmap(NULL,
-	                              sizeof(struct ctest_data),
-	                              PROT_READ | PROT_WRITE,
-	                              MAP_ANON | MAP_SHARED,
-	                              -1,
-	                              0);
-	test_data->in_function = 0;
-	test_data->message_fd = memfd_create("child_message", 0);
+	test_data = (ctest_data) {
+		.in_function = 0,
+		.message_fd = memfd_create("child_message", 0),
+		.sigstatus = {
+			.signum = 0,
+			.recover = 0,
+			.recovery_point = {}
+		}
+	};
 
 	// Init capstone
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &capstone_handle) != CS_ERR_OK)
@@ -37,7 +39,6 @@ session::~session()
 {
 	if (dwfl_handle)
 		dwfl_end(dwfl_handle);
-	munmap(test_data, sizeof(ctest_data));
 }
 
 void
@@ -46,16 +47,29 @@ session::tracer_start()
 	if (ptrace(PTRACE_ATTACH, child, NULL, NULL) < 0)
 		throw exception(fmt::format("ptrace(ATTACH) failed: {}", strerror(errno)));
 
-	int status;
-	if (waitpid(child, &status, 0) != child)
+	if (int status; waitpid(child, &status, 0) != child)
 		throw exception(fmt::format("waitpid({}): {}", child, strerror(errno)));
 
 	if (ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_TRACESYSGOOD) < 0)
 		throw exception(fmt::format("ptrace(SETOPTIONS) failed: {}", strerror(errno)));
 	
+	trace_status.store(1);
 
 	// Parse maps
 	memory.maps.parse(child);
+
+	// Setup Dwfl context
+	Dwfl_Callbacks callbacks = {
+		.find_elf = dwfl_linux_proc_find_elf,
+		.find_debuginfo = dwfl_standard_find_debuginfo,
+	};
+	dwfl_handle = dwfl_begin(&callbacks);
+
+	if (dwfl_linux_proc_report(dwfl_handle, child) != 0)
+		throw exception(fmt::format("dwfl_linux_proc_report failed: {}", strerror(errno)));
+
+	if (dwfl_report_end(dwfl_handle, NULL, NULL) != 0)
+		throw exception(fmt::format("dwfl_report_end failed: {}", strerror(errno)));
 
 	tracer tracer{*this};
 	tracer.trace();
@@ -65,20 +79,26 @@ void
 session::child_start()
 {
 	child_session = (uintptr_t)this;
-	stdout = memfd_create("child_stdout", 0);
-	dup2(stdout, STDOUT_FILENO);
-	stderr = memfd_create("child_stderr", 0);
-	dup2(stderr, STDERR_FILENO);
+	//stdout = memfd_create("child_stdout", 0);
+	//dup2(stdout, STDOUT_FILENO);
+	//stderr = memfd_create("child_stderr", 0);
+	//dup2(stderr, STDERR_FILENO);
+
+	while (trace_status.load() != 1)
+		std::this_thread::sleep_for(std::chrono::milliseconds{5});
 
 	if (!(unit->flags & CTEST_DISABLE_PTRACE))
 		ptrace(PTRACE_TRACEME);
 
+
 	// Don't use printf as it calls to malloc()
-	write(test_data->message_fd, " -- Begin Trace --\n", 15);
+	write(1, " -- Begin Trace --\n", 19);
 	if (!setjmp(jmp_exit))
-		unit->fn(test_data);
-	write(test_data->message_fd, " -- End Trace --\n", 13);
-	test_data->in_function = 0;
+	{
+		unit->fn(&test_data);
+	}
+	test_data.in_function = 0;
+	write(test_data.message_fd, " -- End Trace --\n", 17);
 }
 
 bool
@@ -86,12 +106,13 @@ session::start()
 {
 	colors::intitialize(true);
 
-	child = fork();
-	if (child > 0) {
+	pid_t pid = fork();
+	if (pid > 0) {
+		child = pid;
 		tracer_start();
 		return true;
 	} else {
 		child_start();
+		return false;
 	}
-	return false;
 }

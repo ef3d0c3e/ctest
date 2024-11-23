@@ -4,6 +4,7 @@
 #include "ctest.h"
 #include "memory/memory.hpp"
 #include <capstone/capstone.h>
+#include <condition_variable>
 #include <csetjmp>
 #include <elfutils/libdwfl.h>
 
@@ -11,9 +12,12 @@ namespace ctest {
 /**
  * @brief The session is what manages the traced program via ptrace
  */
-class session
+struct session
 {
-	friend class tracer;
+	/**
+	 * @brief Atomic variable to indicate tracing can start
+	 */
+	std::atomic<int> trace_status = 0;
 
 	mem::memory memory;
 	/**
@@ -23,7 +27,7 @@ class session
 	/**
 	 * @brief The test data shared with the child
 	 */
-	ctest_data* test_data;
+	ctest_data test_data;
 	/**
 	 * @brief Handle of the capstone engine
 	 */
@@ -61,7 +65,10 @@ class session
 	 * @brief The child's entry point
 	 */
 	void child_start();
-public:
+
+	session() = delete;
+	session(const session&) = delete;
+
 	session(const ctest_unit* unit);
 	~session();
 
@@ -71,7 +78,7 @@ public:
 	 * @returns true When the parent returns, false when the child returns
 	 */
 	bool start();
-}; // class session
+}; // struct session
 } // namespace ctest
 
 #endif // CTEST_SESSION_H
