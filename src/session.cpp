@@ -2,8 +2,9 @@
 #include "colors.hpp"
 #include "exceptions.hpp"
 #include <csignal>
+#include <cstring>
 #include <fmt/core.h>
-#include <iostream>
+#include "tracer.hpp"
 #include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <unistd.h>
@@ -42,21 +43,22 @@ session::~session()
 void
 session::tracer_start()
 {
-	if (ptrace(PTRACE_ATTACH, child, NULL, NULL) < 0) {
-		perror("ptrace(ATTACH)");
-		exit(1);
-	}
+	if (ptrace(PTRACE_ATTACH, child, NULL, NULL) < 0)
+		throw exception(fmt::format("ptrace(ATTACH) failed: {}", strerror(errno)));
 
 	int status;
-	if (waitpid(child, &status, 0) != child) {
-		std::cerr << "Failed to ptrace program" << std::endl;
-		exit(1);
-	}
+	if (waitpid(child, &status, 0) != child)
+		throw exception(fmt::format("waitpid({}): {}", child, strerror(errno)));
 
-	if (ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_TRACESYSGOOD) < 0) {
-		perror("ptrace(SETOPTIONS)");
-		exit(1);
-	}
+	if (ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_TRACESYSGOOD) < 0)
+		throw exception(fmt::format("ptrace(SETOPTIONS) failed: {}", strerror(errno)));
+	
+
+	// Parse maps
+	memory.maps.parse(child);
+
+	tracer tracer{*this};
+	tracer.trace();
 }
 
 void

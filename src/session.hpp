@@ -2,6 +2,7 @@
 #define CTEST_SESSION_H
 
 #include "ctest.h"
+#include "memory/memory.hpp"
 #include <capstone/capstone.h>
 #include <csetjmp>
 #include <elfutils/libdwfl.h>
@@ -12,6 +13,9 @@ namespace ctest {
  */
 class session
 {
+	friend class tracer;
+
+	mem::memory memory;
 	/**
 	 * @brief The unit for this session
 	 */
@@ -48,12 +52,6 @@ class session
 	 * after an unrecoverable crash
 	 */
 	jmp_buf jmp_exit;
-	/**
-	 * @brief The recover jump address
-	 *
-	 * The child should go this address when recovering from a crash
-	 */
-	jmp_buf jmp_recover;
 
 	/**
 	 * @brief The tracer's entry point
@@ -63,7 +61,6 @@ class session
 	 * @brief The child's entry point
 	 */
 	void child_start();
-
 public:
 	session(const ctest_unit* unit);
 	~session();

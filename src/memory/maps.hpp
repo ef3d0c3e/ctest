@@ -1,8 +1,12 @@
 #ifndef CTEST_MEMORY_MAPS_H
 #define CTEST_MEMORY_MAPS_H
 
+#include "range.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <map>
+#include <optional>
+#include <string>
 #include <sys/types.h>
 #include <vector>
 namespace ctest::mem {
@@ -19,7 +23,7 @@ enum class access : uint8_t
 /**
  * @brief Represents an entry in /proc/PID/maps
  */
-struct entry
+struct map_entry
 {
 	/**
 	 * @brief Start address
@@ -38,15 +42,9 @@ struct entry
 	 */
 	enum access access_flags;
 	/**
-	 * @brief Map path, may be null
+	 * @brief Map path, may be empty
 	 */
-	char* pathname;
-
-	entry()
-	  : pathname{ NULL }
-	{
-	}
-	~entry() { delete pathname; }
+	std::string pathname;
 }; // struct entry
 
 /**
@@ -54,13 +52,22 @@ struct entry
  */
 class maps
 {
-	std::vector<entry> entries;
+	std::map<range, map_entry> entries;
 
 public:
 	/**
 	 * @brief Parse maps for a pid
 	 */
 	void parse(pid_t pid);
+
+	/**
+	 * @brief Get a @ref map_entry containing a given address
+	 *
+	 * @param address Address to find the @ref map_entry of
+	 *
+	 * @returns The @ref map_entry if found
+	 */
+	std::optional<std::reference_wrapper<map_entry>> get(uintptr_t address);
 }; // class maps
 } // namespace ctest::mem
 

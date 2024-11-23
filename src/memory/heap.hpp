@@ -1,11 +1,12 @@
 #ifndef CTEST_MEMORY_HEAP_HPP
 #define CTEST_MEMORY_HEAP_HPP
 
-#include <bitset>
+#include "range.hpp"
 #include <cstdint>
 #include <map>
 #include <optional>
 #include <vector>
+
 namespace ctest::mem {
 /**
  * @brief Stores the allocated memory from malloc
@@ -45,19 +46,6 @@ struct heap_block
 }; // struct heap_block
 
 /**
- * @brief Represents an address range
- */
-struct range
-{
-	/**
-	 * @brief The addresses
-	 */
-	uintptr_t start, end;
-
-	auto operator<=>(const range& other) const = default;
-};
-
-/**
  * @brief Manages the allocated data from malloc or realloc
  *
  * It it called `heap` but malloc may use mmap for large chunks
@@ -80,11 +68,10 @@ public:
 	/**
 	 * @brief Get a @ref heap_block containing a given address
 	 *
-	 * @param address Address to find the heap block of
+	 * @param address Address to find the @ref map_entry of
 	 *
 	 * @returns The @ref heap_block if found
 	 */
-
 	std::optional<std::reference_wrapper<heap_block>> get(uintptr_t address);
 }; // class heap
 } // namespace ctest::mem

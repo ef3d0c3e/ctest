@@ -1,7 +1,11 @@
 #include "maps.hpp"
+#include "../exceptions.hpp"
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fmt/format.h>
+#include <string>
 
 using namespace ctest::mem;
 
@@ -39,68 +43,55 @@ maps::parse(pid_t pid)
 	};
 
 	entries.clear();
-	char pathbuf[256];
-	snprintf(pathbuf, sizeof(pathbuf), "/proc/%d/maps", pid);
-	FILE* f = fopen(pathbuf, "ro");
-	if (!f) {
-		perror("fopen(/proc/PID/maps)");
-		exit(1);
-	}
+	FILE* f = fopen(fmt::format("/proc/{}/maps", pid).c_str(), "ro");
+	if (!f)
+		throw exception(
+		  fmt::format("fopen(\"/proc/{}/maps\"): {}", pid, strerror(errno)));
 
 	char* line = NULL;
 	size_t sz = 0;
 	ssize_t read;
 	while ((read = getline(&line, &sz, f)) != -1) {
-		entry ent = entry{};
+		map_entry ent = map_entry{};
 
 		char* it = line;
 		it = parse_hex16(it, &ent.start);
-		if (*(it++) != '-') {
-			fprintf(stderr,
-			        "Invalid /proc/%d/maps: Missing separating '-' between "
-			        "start and end address.\n",
-			        pid);
-			break;
-		}
+		if (*(it++) != '-')
+			throw exception(
+			  fmt::format("Invalid /proc/{}/maps: Missing separating '-' "
+			              "between start and end address.",
+			              pid));
 		it = parse_hex16(it, &ent.end);
-		if (*(it++) != ' ') {
+		if (*(it++) != ' ')
+			throw exception(fmt::format(
+			  "Invalid /proc/{}/maps: Missing separating ' ' between "
+			  "end address and access flags.",
+			  pid));
 
-			fprintf(stderr,
-			        "Invalid /proc/%d/maps: Missing separating ' ' between "
-			        "end address and access flags.\n",
-			        pid);
-			break;
-		}
-		if (!(it = parse_access(it, &ent.access_flags))) {
-			fprintf(
-			  stderr, "Invalid /proc/%d/maps: Invalid access flags\n", pid);
-			break;
-		}
-		if (*(it++) != ' ') {
-			fprintf(stderr,
-			        "Invalid /proc/%d/maps: Missing separating ' ' between "
-			        "access flags and offset.\n",
-			        pid);
-			break;
-		}
+		if (!(it = parse_access(it, &ent.access_flags)))
+			throw exception(
+			  fmt::format("Invalid /proc/{}/maps: Invalid access flags", pid));
+		if (*(it++) != ' ')
+			throw exception(fmt::format(
+			  "Invalid /proc/{}/maps: Missing separating ' ' between "
+			  "access flags and offset.",
+			  pid));
 		it = parse_hex16(it, &ent.offset);
 		if (*(it++) != ' ') {
-			fprintf(stderr,
-			        "Invalid /proc/%d/maps: Missing separating ' ' between "
-			        "offset and device.\n",
-			        pid);
+			throw exception(fmt::format(
+			  "Invalid /proc/{}/maps: Missing separating ' ' between "
+			  "offset and device.",
+			  pid));
 			break;
 		}
 		// Skip device
 		while (*it != ' ')
 			++it;
-		if (*(it++) != ' ') {
-			fprintf(stderr,
-			        "Invalid /proc/%d/maps: Missing separating ' ' between "
-			        "device and inode.\n",
-			        pid);
-			break;
-		}
+		if (*(it++) != ' ')
+			throw exception(fmt::format(
+			  "Invalid /proc/{}/maps: Missing separating ' ' between "
+			  "device and inode.",
+			  pid));
 		// Skip inode
 		while (*it != ' ')
 			++it;
@@ -108,12 +99,21 @@ maps::parse(pid_t pid)
 		while (*it != '\n' && *it == ' ')
 			++it;
 		size_t it_len = strlen(it);
-		ent.pathname = new char[it_len];
-		std::memcpy(ent.pathname, it, it_len - 1);
-		ent.pathname[it_len - 1] = 0;
+		ent.pathname = std::string(it, it + it_len - 1);
+
+		entries.insert({ range{ ent.start, ent.end }, ent });
 	}
 	if (line)
 		free(line);
 
 	fclose(f);
+}
+
+std::optional<std::reference_wrapper<map_entry>>
+maps::get(uintptr_t address)
+{
+	auto it = entries.lower_bound(range{ address, address });
+	if (it != entries.begin() && (--it)->first.end <= address)
+		return { it->second };
+	return {};
 }
