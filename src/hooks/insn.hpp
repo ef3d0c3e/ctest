@@ -1,6 +1,7 @@
 #ifndef CTEST_HOOKS_INSN_HPP
 #define CTEST_HOOKS_INSN_HPP
 
+#include "../calls/calls.hpp"
 #include "../memory/memory.hpp"
 #include <capstone/capstone.h>
 #include <functional>
@@ -57,6 +58,17 @@ public:
  */
 std::vector<mem::mem_access>
 get_memory_access(const user_regs_struct& regs, const cs_insn* insn);
+
+/**
+ * @brief Utility for @ref calls::calls::process_calls
+ *
+ * @param regs The program registers
+ * @param insn The decoded instruction at RIP
+ *
+ * @returns The function calls resulting from the current instruction being executed
+ */
+std::vector<calls::function_call>
+get_function_calls(const session& session, const user_regs_struct& regs, const cs_insn* insn);
 } // namespace ctest::hooks
 
 #endif // CTEST_HOOKS_INSN_HPP

@@ -1,5 +1,6 @@
 #include "tracer.hpp"
 #include "exceptions.hpp"
+#include "hooks/insn.hpp"
 #include "reporting/report.hpp"
 #include "session.hpp"
 #include <capstone/capstone.h>
@@ -17,18 +18,25 @@ tracer::tracer(ctest::session& session)
   : session{ session }
 {
 	// Memory access
-	insn_hooks.add([](ctest::session& s, const user_regs_struct& regs, const cs_insn* insn){
-		for (auto&& access : hooks::get_memory_access(regs, insn))
-			if (!s.memory.process_access(s, regs, std::move(access)))
-				return false;
-		return true;
-	});
+	insn_hooks.add(
+	  [](ctest::session& s, const user_regs_struct& regs, const cs_insn* insn) {
+		  for (auto&& access : hooks::get_memory_access(regs, insn))
+			  if (!s.memory.process_access(s, regs, std::move(access)))
+				  return false;
+		  return true;
+	  });
+
+	insn_hooks.add(
+	  [](ctest::session& s, const user_regs_struct& regs, const cs_insn* insn) {
+		  hooks::get_function_calls(s, regs, insn);
+		  return true;
+	  });
 }
 
 bool
 tracer::handle_sigsegv()
 {
-	static auto recover = +[](tracer& tracer){
+	static auto recover = +[](tracer& tracer) {
 		if (tracer.session.test_data.sigstatus.recover)
 			siglongjmp(tracer.session.test_data.sigstatus.recovery_point, 1);
 		else
@@ -40,8 +48,7 @@ tracer::handle_sigsegv()
 		throw exception(
 		  fmt::format("ptrace(GETREGS) failed: {0}", strerror(errno)));
 
-	if (!session.test_data.sigstatus.recover)
-	{
+	if (!session.test_data.sigstatus.recover) {
 		report::error_message(session, regs, "Program sent unexpected SIGSEGV");
 		return false;
 	}
@@ -70,7 +77,8 @@ tracer::trace()
 			  "waitpid({}) failed: {}", session.child, strerror(errno)));
 		// Process signals
 		else if (const int code = WIFEXITED(status); code) {
-			std::cerr << fmt::format("Child process exited with code: {0}", WEXITSTATUS(status))
+			std::cerr << fmt::format("Child process exited with code: {0}",
+			                         WEXITSTATUS(status))
 			          << std::endl;
 			break;
 		} else if (const int code = WIFSIGNALED(status); code) {
@@ -97,7 +105,7 @@ tracer::trace()
 		struct user_regs_struct regs;
 		if (ptrace(PTRACE_GETREGS, session.child, 0, &regs) < 0)
 			throw exception(
-					fmt::format("ptrace(GETREGS) failed: {0}", strerror(errno)));
+			  fmt::format("ptrace(GETREGS) failed: {0}", strerror(errno)));
 
 		// TODO: Force the child to shutdown
 		if (!insn_hooks.process(session, regs))
