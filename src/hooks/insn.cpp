@@ -1,22 +1,21 @@
 #include "insn.hpp"
-#include "exceptions.hpp"
+#include "../exceptions.hpp"
+#include "../session.hpp"
 #include "fmt/format.h"
-#include "memory/memory.hpp"
-#include "session.hpp"
 #include <capstone/capstone.h>
 #include <cstring>
 #include <sys/ptrace.h>
 
-using namespace ctest;
+using namespace ctest::hooks;
 
 void
-insn_hook::add(insn_hook_t&& hook)
+insn::add(insn_hook_t&& hook)
 {
 	hooks.push_back(std::move(hook));
 }
 
 bool
-insn_hook::process(session& session, const user_regs_struct& regs) const
+insn::process(session& session, const user_regs_struct& regs) const
 {
 	auto read_bytes =
 	  [](pid_t pid, uintptr_t address, uint8_t* buffer, size_t length) {
@@ -94,12 +93,12 @@ get_register_value(x86_reg reg, const struct user_regs_struct& regs)
 		case X86_REG_RIP:
 			return regs.rip;
 		default:
-			throw exception(fmt::format("Unhandled register: {0}", (int)reg));
+			throw ctest::exception(fmt::format("Unhandled register: {0}", (int)reg));
 	}
 }
 
-std::vector<mem::mem_access>
-ctest::get_memory_access(const user_regs_struct& regs, const cs_insn* insn)
+std::vector<ctest::mem::mem_access>
+ctest::hooks::get_memory_access(const user_regs_struct& regs, const cs_insn* insn)
 {
 	/* Calculates effective address */
 	auto effective_address = [](const cs_x86_op& op,

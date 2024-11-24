@@ -1,6 +1,5 @@
 #include "tracer.hpp"
 #include "exceptions.hpp"
-#include "insn.hpp"
 #include "reporting/report.hpp"
 #include "session.hpp"
 #include <capstone/capstone.h>
@@ -19,7 +18,7 @@ tracer::tracer(ctest::session& session)
 {
 	// Memory access
 	insn_hooks.add([](ctest::session& s, const user_regs_struct& regs, const cs_insn* insn){
-		for (auto&& access : get_memory_access(regs, insn))
+		for (auto&& access : hooks::get_memory_access(regs, insn))
 			if (!s.memory.process_access(s, regs, std::move(access)))
 				return false;
 		return true;

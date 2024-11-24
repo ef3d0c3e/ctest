@@ -1,7 +1,7 @@
-#ifndef CTEST_INSN_HPP
-#define CTEST_INSN_HPP
+#ifndef CTEST_HOOKS_INSN_HPP
+#define CTEST_HOOKS_INSN_HPP
 
-#include "memory/memory.hpp"
+#include "../memory/memory.hpp"
 #include <capstone/capstone.h>
 #include <functional>
 #include <optional>
@@ -10,11 +10,14 @@
 
 namespace ctest {
 struct session;
+} // namespace ctest
+
+namespace ctest::hooks {
 
 using insn_hook_t = std::function<
   bool(session& session, const user_regs_struct& regs, const cs_insn* insn)>;
 
-class insn_hook
+class insn
 {
 	/**
 	 * @brief Stores registered hooks
@@ -40,7 +43,8 @@ public:
 	 *
 	 * @returns true on success, false on failure
 	 */
-	[[nodiscard]] bool process(session& session, const user_regs_struct& regs) const;
+	[[nodiscard]] bool process(session& session,
+	                           const user_regs_struct& regs) const;
 }; // class insn_hook
 
 /**
@@ -53,6 +57,6 @@ public:
  */
 std::vector<mem::mem_access>
 get_memory_access(const user_regs_struct& regs, const cs_insn* insn);
-} // namespace ctest
+} // namespace ctest::hooks
 
-#endif // CTEST_INSN_HPP
+#endif // CTEST_HOOKS_INSN_HPP

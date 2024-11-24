@@ -3,8 +3,12 @@
 
 #include "range.hpp"
 #include <cstdint>
+#include <expected>
+#include <functional>
 #include <map>
 #include <optional>
+#include <string_view>
+#include <variant>
 #include <vector>
 
 namespace ctest::mem {
@@ -18,9 +22,13 @@ namespace ctest::mem {
 struct heap_block
 {
 	/**
-	 * @brief Address of the allocator function, i.e malloc or realloc
+	 * @brief Address of the allocator function, i.e malloc, realloc or mmap
 	 */
 	uintptr_t allocator;
+	/**
+	 * @brief Address of the deallocator function, i.e free, munmap
+	 */
+	uintptr_t deallocator;
 	/**
 	 * @brief Address returned by the allocator
 	 */
@@ -43,6 +51,22 @@ struct heap_block
 	 * @brief RIP before call to free, set to 0 when not freed
 	 */
 	uintptr_t free_pc;
+
+	/**
+	 * @brief Get the name of the allocator
+	 *
+	 * @returns The name of the allocator
+	 */
+	std::string_view allocated_by() const;
+
+	/**
+	 * @brief Get the name of the deallocator
+	 *
+	 * @returns The name of the deallocator
+	 *
+	 * @note Will throw if not deallocated yet, check that `freed_rip != 0` before calling this method
+	 */
+	std::string_view deallocated_by() const;
 }; // struct heap_block
 
 /**
@@ -52,9 +76,26 @@ struct heap_block
  */
 class heap
 {
-	std::map<range, heap_block> blocks;
+	std::map<uintptr_t, heap_block> blocks;
 
 public:
+	/**
+	 * @brief Successful range result
+	 */
+	using range_result_ok = std::reference_wrapper<heap_block>;
+
+	/**
+	 * @brief Found overflow/underflow
+	 */
+	using range_result_unbounded =
+	  std::tuple<std::reference_wrapper<heap_block>, size_t, size_t>;
+	/**
+	 * @brief Unknown range result, returns closest blocks
+	 */
+	using range_result_unknown =
+	  std::pair<std::optional<std::reference_wrapper<heap_block>>,
+	            std::optional<std::reference_wrapper<heap_block>>>;
+
 	/**
 	 * @brief Inserts a new heap block
 	 *
@@ -66,13 +107,19 @@ public:
 	void insert(heap_block&& block);
 
 	/**
-	 * @brief Get a @ref heap_block containing a given address
+	 * @brief Gets an allocation by a range
 	 *
-	 * @param address Address to find the @ref map_entry of
+	 * @param range The range to get the allocation of
 	 *
-	 * @returns The @ref heap_block if found
+	 * @returns @ref range_result_ok with the allocation if found, otherwise
+	 * return the following
+	 *  - @ref range_result_unknown: If no block containing the range was found,
+	 * with potential closest blocks
+	 *  - @ref range_result_unbounded: If an overflow is detected, with the
+	 * overflow and underflow amout
 	 */
-	std::optional<std::reference_wrapper<heap_block>> get(uintptr_t address);
+	std::variant<range_result_ok, range_result_unbounded, range_result_unknown>
+	get_range(const range& r);
 }; // class heap
 } // namespace ctest::mem
 
