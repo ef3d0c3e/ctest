@@ -3,6 +3,7 @@
 
 #include "ctest.h"
 #include "memory/memory.hpp"
+#include "calls/calls.hpp"
 #include <capstone/capstone.h>
 #include <condition_variable>
 #include <csetjmp>
@@ -19,7 +20,17 @@ struct session
 	 */
 	std::atomic<int> trace_status = 0;
 
+	/**
+	 * @brief The memory system
+	 */
 	mem::memory memory;
+
+	/**
+	 * @brief The calls system
+	 */
+	calls::calls calls;
+	
+
 	/**
 	 * @brief The unit for this session
 	 */

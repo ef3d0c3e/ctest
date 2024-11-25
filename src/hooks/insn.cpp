@@ -18,7 +18,7 @@ insn::add(insn_hook_t&& hook)
 }
 
 bool
-insn::process(session& session, const user_regs_struct& regs) const
+insn::process(session& session, user_regs_struct& regs) const
 {
 	auto read_bytes =
 	  [](pid_t pid, uintptr_t address, uint8_t* buffer, size_t length) {
@@ -175,14 +175,12 @@ get_plt_range(Dwfl_Module* mod)
 	Elf_Scn* scn = nullptr;
 	while ((scn = elf_nextscn(elf, scn)) != nullptr) {
 		GElf_Shdr shdr;
-		if (gelf_getshdr(scn, &shdr) == nullptr) {
+		if (gelf_getshdr(scn, &shdr) == nullptr)
 			continue;
-		}
 
 		const char* name = elf_strptr(elf, shstrndx, shdr.sh_name);
-		if (name && std::string_view{ name } == ".plt") {
+		if (name && std::string_view{ name } == ".plt")
 			return { shdr.sh_addr + bias, shdr.sh_size };
-		}
 	}
 
 	throw ctest::exception("PLT section not found");
@@ -209,7 +207,7 @@ find_got_entry(Dwfl_Module* mod, uintptr_t plt_addr)
 			continue;
 
 		const char* name = elf_strptr(elf, shstrndx, rela_shdr.sh_name);
-		if (!name || strcmp(name, ".rela.plt") != 0)
+		if (!name || std::string_view{ name } != ".rela.plt")
 			continue;
 
 		// Found .rela.plt - now find the matching entry
@@ -237,6 +235,7 @@ find_got_entry(Dwfl_Module* mod, uintptr_t plt_addr)
 static uintptr_t
 resolve_calls(const ctest::session& session, uintptr_t called_address)
 {
+	// TODO: Handle the GNU STT_IFUNC extension
 	Dwfl_Module* mod = dwfl_addrmodule(session.dwfl_handle, called_address);
 	if (!mod)
 		throw ctest::exception(
@@ -260,7 +259,7 @@ resolve_calls(const ctest::session& session, uintptr_t called_address)
 		  got_addr,
 		  strerror(errno)));
 
-	return (uintptr_t)got_content;
+	return got_content;
 }
 
 std::vector<ctest::calls::function_call>
@@ -322,6 +321,7 @@ ctest::hooks::get_function_calls(const session& session,
 	}
 	if (!is_call)
 		return {};
+
 	std::vector<calls::function_call> calls;
 	for (const auto i : std::ranges::iota_view{
 	       std::uint8_t{}, insn[0].detail->x86.op_count }) {
@@ -329,6 +329,7 @@ ctest::hooks::get_function_calls(const session& session,
 		calls::function_call call{
 			.addr = effective_address(op, regs),
 			.resolved = 0,
+			.call_length = insn[0].size
 		};
 		call.resolved = resolve_calls(session, call.addr);
 		calls.push_back(std::move(call));

@@ -16,7 +16,7 @@ lines_from_file(const char* source_file, std::pair<int, int> range, int target)
 		throw exception(fmt::format("Invalid target={}, range=[{}, {}]", target, range.first, range.second));
 	std::ifstream in(source_file);
 	if (!in.good())
-		return format("{c_italic}<Can't open '{0}'>{c_reset}", source_file);
+		return format("{c_italic}<Can't open '{0}'>{c_reset}\n", source_file);
 
 
 

@@ -46,7 +46,7 @@ struct mem_access
 
 class memory
 {
-	friend ctest::session;
+	friend session;
 
 	mem::maps maps;
 	mem::heap heap;

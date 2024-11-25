@@ -16,7 +16,7 @@ struct session;
 namespace ctest::hooks {
 
 using insn_hook_t = std::function<
-  bool(session& session, const user_regs_struct& regs, const cs_insn* insn)>;
+  bool(session& session, user_regs_struct& regs, const cs_insn* insn)>;
 
 class insn
 {
@@ -45,7 +45,7 @@ public:
 	 * @returns true on success, false on failure
 	 */
 	[[nodiscard]] bool process(session& session,
-	                           const user_regs_struct& regs) const;
+	                           user_regs_struct& regs) const;
 }; // class insn_hook
 
 /**

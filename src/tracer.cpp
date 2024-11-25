@@ -19,16 +19,19 @@ tracer::tracer(ctest::session& session)
 {
 	// Memory access
 	insn_hooks.add(
-	  [](ctest::session& s, const user_regs_struct& regs, const cs_insn* insn) {
+	  [](ctest::session& s, user_regs_struct& regs, const cs_insn* insn) {
 		  for (auto&& access : hooks::get_memory_access(regs, insn))
 			  if (!s.memory.process_access(s, regs, std::move(access)))
 				  return false;
 		  return true;
 	  });
 
+	// Function calls
 	insn_hooks.add(
-	  [](ctest::session& s, const user_regs_struct& regs, const cs_insn* insn) {
-		  hooks::get_function_calls(s, regs, insn);
+	  [](ctest::session& s, user_regs_struct& regs, const cs_insn* insn) {
+		  for (auto&& calls : hooks::get_function_calls(s, regs, insn))
+			  if (!s.calls.process_calls(s, regs, std::move(calls)))
+				  return false;
 		  return true;
 	  });
 }
@@ -68,6 +71,8 @@ tracer::handle_sigsegv()
 void
 tracer::trace()
 {
+	// Set to true when a there is a hook message that needs processing when a hook finishes
+	bool incoming_message = false;
 	while (true) {
 		if (ptrace(PTRACE_SINGLESTEP, session.child, 0, 0) < 0)
 			throw exception(
@@ -101,11 +106,22 @@ tracer::trace()
 
 		if (!session.test_data.in_function)
 			continue;
+		if (session.calls.hooked())
+		{
+			incoming_message = true;
+			continue;
+		}
 
 		struct user_regs_struct regs;
 		if (ptrace(PTRACE_GETREGS, session.child, 0, &regs) < 0)
 			throw exception(
 			  fmt::format("ptrace(GETREGS) failed: {0}", strerror(errno)));
+
+		if (incoming_message)
+		{
+			session.calls.process_messages(session, regs);
+			incoming_message = false;
+		}
 
 		// TODO: Force the child to shutdown
 		if (!insn_hooks.process(session, regs))
