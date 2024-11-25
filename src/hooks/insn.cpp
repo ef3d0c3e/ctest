@@ -195,39 +195,57 @@ find_got_entry(Dwfl_Module* mod, uintptr_t plt_addr)
 	if (!elf)
 		throw ctest::exception("Failed to get ELF handle");
 
-	// Get rela.plt section
+	// Get .plt section header to calculate entry size
+	Elf_Scn* plt_scn = nullptr;
+	GElf_Shdr plt_shdr;
+	size_t plt_entsize = 0;
+	while ((plt_scn = elf_nextscn(elf, plt_scn)) != nullptr) {
+		if (gelf_getshdr(plt_scn, &plt_shdr) == nullptr)
+			continue;
+		size_t shstrndx;
+		if (elf_getshdrstrndx(elf, &shstrndx) < 0)
+			continue;
+		const char* name = elf_strptr(elf, shstrndx, plt_shdr.sh_name);
+		if (name && std::string_view{ name } == ".plt") {
+			plt_entsize = plt_shdr.sh_entsize;
+			break;
+		}
+	}
+	if (plt_entsize == 0)
+		throw ctest::exception("Failed to find .plt section");
+
+	// Calculate PLT index
+	uintptr_t plt_base = plt_shdr.sh_addr + bias;
+	size_t plt_index = (plt_addr - plt_base) / plt_entsize;
+
+	// Find matching GOT entry in .rela.plt
 	Elf_Scn* rela_plt = nullptr;
 	while ((rela_plt = elf_nextscn(elf, rela_plt)) != nullptr) {
 		GElf_Shdr rela_shdr;
 		if (gelf_getshdr(rela_plt, &rela_shdr) == nullptr)
 			continue;
-
 		size_t shstrndx;
 		if (elf_getshdrstrndx(elf, &shstrndx) < 0)
 			continue;
-
 		const char* name = elf_strptr(elf, shstrndx, rela_shdr.sh_name);
 		if (!name || std::string_view{ name } != ".rela.plt")
 			continue;
 
-		// Found .rela.plt - now find the matching entry
 		Elf_Data* data = elf_getdata(rela_plt, nullptr);
 		if (!data)
 			throw ctest::exception("Failed to get .rela.plt data");
 
-		for (const auto i : std::ranges::iota_view{
-		       std::size_t{}, rela_shdr.sh_size / sizeof(GElf_Rela) }) {
-			GElf_Rela rela;
-			if (gelf_getrela(data, i, &rela) == nullptr)
-				continue;
+		// PLT index matches the relocation index (after the first PLT entry)
+		size_t rela_index = plt_index - 1;
+		if (rela_index >= rela_shdr.sh_size / sizeof(GElf_Rela))
+			throw ctest::exception("PLT index out of range");
 
-			// Check if this relocation corresponds to our PLT entry
-			if (rela.r_offset > plt_addr - bias)
-				return rela.r_offset +
-				       bias; // Return GOT entry address with bias applied
-		}
+		GElf_Rela rela;
+		if (gelf_getrela(data, rela_index, &rela) == nullptr)
+			throw ctest::exception("Failed to get relocation entry");
+
+		return rela.r_offset + bias;
 	}
-
 	throw ctest::exception("GOT entry not found");
 }
 
@@ -326,11 +344,9 @@ ctest::hooks::get_function_calls(const session& session,
 	for (const auto i : std::ranges::iota_view{
 	       std::uint8_t{}, insn[0].detail->x86.op_count }) {
 		const cs_x86_op& op = (insn[0].detail->x86.operands[i]);
-		calls::function_call call{
-			.addr = effective_address(op, regs),
-			.resolved = 0,
-			.call_length = insn[0].size
-		};
+		calls::function_call call{ .addr = effective_address(op, regs),
+			                       .resolved = 0,
+			                       .call_length = insn[0].size };
 		call.resolved = resolve_calls(session, call.addr);
 		calls.push_back(std::move(call));
 	}

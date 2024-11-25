@@ -27,6 +27,7 @@ struct heap_block
 	uintptr_t allocator;
 	/**
 	 * @brief Address of the deallocator function, i.e free, munmap
+	 * Only set if deallocator has been called, otherwise 0
 	 */
 	uintptr_t deallocator;
 	/**

@@ -353,6 +353,11 @@ class calls
 	 */
 	uintptr_t current_hook = 0;
 	/**
+	 * @brief Value of RIP before a call hook. Only valid if @ref in_hook was set previously
+	 */
+	uintptr_t pc_before_hook;
+
+	/**
 	 * @brief Message from the parent to the child
 	 *
 	 * This is set when the child is entering a call hook
@@ -435,13 +440,13 @@ public:
 
 		// Prepare call
 		const uintptr_t original_rip = regs.rip + call_length;
+		regs.rsp -= sizeof(uintptr_t);
 		ptrace(PTRACE_POKEDATA, pid, (void*)regs.rsp, original_rip);
 
 		// Set parameters via the registers & stack
 		detail::make_call_impl(
 		  pid, regs, fpregs, std::make_tuple(std::forward<Ts>(ts)...));
 
-		regs.rsp -= sizeof(uintptr_t);
 
 		regs.rip = current_hook;
 		if (ptrace(PTRACE_SETREGS, pid, 0, &regs) < 0)

@@ -8,6 +8,10 @@
 namespace ctest
 {
 	struct session;
+	namespace calls
+	{
+		class calls;
+	} // namespace calls
 } // namespace ctest
 
 namespace ctest::mem {
@@ -47,6 +51,7 @@ struct mem_access
 class memory
 {
 	friend session;
+	friend calls::calls;
 
 	mem::maps maps;
 	mem::heap heap;
