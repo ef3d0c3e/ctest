@@ -1,6 +1,8 @@
 #include "calls.hpp"
 #include "../exceptions.hpp"
 #include "../session.hpp"
+#include "../reporting/report.hpp"
+#include "../colors.hpp"
 #include "fmt/format.h"
 #include <iostream>
 #include <unistd.h>
@@ -22,6 +24,13 @@ calls::malloc_hook(ctest::session& session)
 	return ptr;
 }
 
+void
+calls::free_hook(ctest::session& session)
+{
+	free((void*)session.calls.msg_in.free.ptr);
+	session.calls.in_hook = false;
+}
+
 bool
 calls::process_calls(ctest::session& session,
                      user_regs_struct& regs,
@@ -37,10 +46,50 @@ calls::process_calls(ctest::session& session,
 		          call.call_length,
 		          session.child_session);
 	}
+	else if (call.resolved == (uintptr_t)free) {
+		auto&& [ptr] = get_call_parameter(session.child, regs, free);
+		const auto result = session.memory.heap.get((uintptr_t)ptr);
+		/* Wrong free */
+		if (!result.has_value())
+		{
+			report::error_message(
+					session,
+					regs,
+					format(
+						"Free on unknown address: {c_blue}{:x}{c_reset}"sv, msg_in.free.ptr));
+			std::cerr << format(" {c_blue}-> Heap block:{c_reset}\n");
+			return false;
+		}
+		else
+		{
+			auto& block = result.value().get();
+			/* Double free */
+			if (block.free_pc != 0)
+			{
+				report::error_message(
+						session,
+						regs,
+						format(
+							"Double free detected"sv));
+				std::cerr << format(" {c_blue}-> Heap block:{c_reset}\n");
+				report::allocation(session, block);
+				return false;
+			}
+			block.deallocator = (uintptr_t)free;
+			block.free_pc = pc_before_hook;
+		}
+		msg_in.free.ptr = (uintptr_t)ptr;
+
+		make_call(session.child,
+		          regs,
+		          free_hook,
+		          call.call_length,
+		          session.child_session);
+	}
 	return true;
 }
 
-void
+bool
 calls::process_messages(ctest::session& session, const user_regs_struct& regs)
 {
 	if (current_hook == (uintptr_t)malloc_hook) {
@@ -57,4 +106,9 @@ calls::process_messages(ctest::session& session, const user_regs_struct& regs)
 		  .free_pc = 0,
 		});
 	}
+	if (current_hook == (uintptr_t)free_hook) {
+		// Parse maps in case brk was called
+		session.memory.maps.parse(session.child);
+}
+	return true;
 }

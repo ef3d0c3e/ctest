@@ -71,7 +71,8 @@ tracer::handle_sigsegv()
 void
 tracer::trace()
 {
-	// Set to true when a there is a hook message that needs processing when a hook finishes
+	// Set to true when a there is a hook message that needs processing when a
+	// hook finishes
 	bool incoming_message = false;
 	while (true) {
 		if (ptrace(PTRACE_SINGLESTEP, session.child, 0, 0) < 0)
@@ -106,8 +107,7 @@ tracer::trace()
 
 		if (!session.test_data.in_function)
 			continue;
-		if (session.calls.hooked())
-		{
+		if (session.calls.hooked()) {
 			incoming_message = true;
 			continue;
 		}
@@ -117,10 +117,10 @@ tracer::trace()
 			throw exception(
 			  fmt::format("ptrace(GETREGS) failed: {0}", strerror(errno)));
 
-		if (incoming_message)
-		{
-			session.calls.process_messages(session, regs);
+		if (incoming_message) {
 			incoming_message = false;
+			if (!session.calls.process_messages(session, regs))
+				break;
 		}
 
 		// TODO: Force the child to shutdown

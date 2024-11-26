@@ -1,5 +1,6 @@
 #include "heap.hpp"
 #include "../exceptions.hpp"
+#include <algorithm>
 #include <fmt/format.h>
 #include <iostream>
 #include <ranges>
@@ -72,6 +73,16 @@ heap::insert(heap_block&& block)
 	  { { block.address, block.address + block.size }, std::move(block) });
 }
 
+std::optional<std::reference_wrapper<heap_block>> heap::get(uintptr_t address)
+{
+	auto it = blocks.upper_bound({address, address});
+	if (it != blocks.begin())
+		--it;
+	if (it->second.address == address)
+		return it->second;
+	return {};
+}
+
 std::expected<std::reference_wrapper<heap_block>, heap::range_error>
 heap::get_range(const range& r)
 {
@@ -90,7 +101,7 @@ heap::get_range(const range& r)
 
 	// Find all potentially relevant entries
 	while (it != blocks.end() && it->first.start <= r.end) {
-		if (it->second.free_pc == 0 && it->first.overlaps({ r.start, r.end }))
+		if (it->first.overlaps({ r.start, r.end }))
 			overlapping.push_back(it->second);
 		++it;
 	}
@@ -114,7 +125,7 @@ heap::get_range(const range& r)
 				++next_it;
 			}
 			err.next = (--next_it)->second;
-		} else
+		} else if (err.overlapping[0].get().free_pc == 0)
 			return const_cast<heap_block&>(err.overlapping[0].get());
 	}
 

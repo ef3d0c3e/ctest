@@ -104,6 +104,22 @@ memory::process_access(session& session,
 					report::allocation(session, block);
 				return false;
 			}
+			/* Use after free */
+			else if (const auto& block = err.overlapping[0].get(); block.free_pc != 0) {
+				report::error_message(
+				  session,
+				  regs,
+				  format(
+				    "Use-after-free of {0} bytes in {1} instruction: "
+				    "{c_blue}[{2:x}; {3}]{c_reset}"sv,
+				    access.size,
+				    access.access_name(),
+				    access.address,
+				    access.size));
+				std::cerr << format(" {c_blue}-> Heap block:{c_reset}\n");
+				report::allocation(session, block);
+				return false;
+			}
 			/* Underflow */
 			else if (const auto& block = err.overlapping[0].get();
 			         block.address > access.address) {

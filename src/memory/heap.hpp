@@ -90,6 +90,8 @@ struct heap_block
  * @brief Manages the allocated data from malloc or realloc
  *
  * It it called `heap` but malloc may use mmap for large chunks
+ *
+ * TODO: Allocated and deallocated blocks must be split into two containers
  */
 class heap
 {
@@ -121,6 +123,15 @@ public:
 	 * exception will be thrown
 	 */
 	void insert(heap_block&& block);
+
+	/**
+	 * @brief Gets a @ref heap_block by it's address
+	 *
+	 * @param address Address of the heap block to get
+	 *
+	 * @returns The heap block if found
+	 */
+	std::optional<std::reference_wrapper<heap_block>> get(uintptr_t address);
 
 	/**
 	 * @brief Gets an allocation by a range

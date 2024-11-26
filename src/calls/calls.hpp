@@ -372,6 +372,7 @@ class calls
 	message_out msg_out;
 
 	static void* malloc_hook(ctest::session& session);
+	static void free_hook(ctest::session& session);
 
 public:
 	/**
@@ -479,7 +480,7 @@ public:
 	                                 user_regs_struct& regs,
 	                                 function_call&& call);
 
-	void process_messages(ctest::session& session,
+	bool process_messages(ctest::session& session,
 	                      const user_regs_struct& regs);
 }; // class calls
 } // namespace ctest::calls
