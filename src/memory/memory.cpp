@@ -54,54 +54,106 @@ memory::process_access(session& session,
 	}
 
 	if (start_map->get().pathname == "[heap]") {
-		const auto block =
+		const auto result =
 		  heap.get_range(range{ access.address, access.address + access.size });
 
-		if (!std::visit(
-		      [&]<class T>(const T& t) {
-			      if constexpr (std::is_same_v<heap::range_result_unknown, T>) {
-				      report::error_message(
-				        session,
-				        regs,
-				        format(
-				          "Unallocated heap memory access in {0} instruction: "
-				          "{c_blue}[{1:x}; {2}]{c_reset}"sv,
-				          access.access_name(),
-				          access.address,
-				          access.size));
-				      if (t.first.has_value()) {
-					      std::cerr << format(" {c_blue}-> Closest previous "
-					                          "heap block:{c_reset}\n");
-					      report::allocation(session, t.first.value());
-				      }
-				      if (t.second.has_value()) {
-					      std::cerr << format(
-					        " {c_blue}-> Closest next heap block:{c_reset}\n");
-					      report::allocation(session, t.second.value());
-				      }
-				      return false;
-			      } else if constexpr (std::is_same_v<
-			                             heap::range_result_unbounded,
-			                             T>) {
-				      report::error_message(
-				        session,
-				        regs,
-				        format(
-				          "Heap-Buffer {0} of {1} bytes in {2} instruction: "
-				          "{c_blue}[{3:x}; {4}]{c_reset}"sv,
-				          std::get<1>(t) != 0 ? "overflow" : "underflow",
-				          std::get<1>(t) + std::get<2>(t),
-				          access.access_name(),
-				          access.address,
-				          access.size));
-				      std::cerr << format(" {c_blue}-> Heap block:{c_reset}\n");
-				      report::allocation(session, std::get<0>(t));
-				      return false;
-			      }
-			      return true;
-		      },
-		      block))
+		if (result.has_value()) {
+			auto& block{ result.value().get() };
+			const range r{ access.address - block.address,
+				           access.address + access.size - block.address };
+			if ((uint8_t)access.access & (uint8_t)access_type::READ &&
+			    !block.is_initialized(r)) {
+				report::error_message(
+				  session,
+				  regs,
+				  format("Access to non-initialized memory in {0} instruction: "
+				         "{c_blue}[{1:x}; {2}]{c_reset}"sv,
+				         access.access_name(),
+				         access.address,
+				         access.size));
+				report::allocation(session, block);
+				return false;
+			}
+			if ((uint8_t)access.access & (uint8_t)access_type::WRITE) {
+				block.set_initialized(r);
+			}
+		} else {
+			const auto err = result.error();
+			/* No blocks found */
+			if (err.overlapping.empty()) {
+				report::error_message(
+				  session,
+				  regs,
+				  format("Unallocated heap memory access in {0} instruction: "
+				         "{c_blue}[{1:x}; {2}]{c_reset}"sv,
+				         access.access_name(),
+				         access.address,
+				         access.size));
+				return false;
+			} else if (err.overlapping.size() != 1) {
+				report::error_message(
+				  session,
+				  regs,
+				  format("Access over multiple heap blocks in {0} instruction: "
+				         "{c_blue}[{1:x}; {2}]{c_reset}"sv,
+				         access.access_name(),
+				         access.address,
+				         access.size));
+				std::cerr << format(" {c_blue}-> Concerned blocks:{c_reset}\n");
+				for (const auto& block : err.overlapping)
+					report::allocation(session, block);
+				return false;
+			}
+			/* Underflow */
+			else if (const auto& block = err.overlapping[0].get();
+			         block.address > access.address) {
+				report::error_message(
+				  session,
+				  regs,
+				  format(
+				    "Heap-Buffer underflow of {0} bytes in {1} instruction: "
+				    "{c_blue}[{2:x}; {3}]{c_reset}"sv,
+				    block.address - access.address,
+				    access.access_name(),
+				    access.address,
+				    access.size));
+				std::cerr << format(" {c_blue}-> Heap block:{c_reset}\n");
+				report::allocation(session, block);
+				return false;
+			}
+			/* Overflow */
+			else if (const auto& block = err.overlapping[0].get();
+			         block.address + block.size <
+			         access.address + access.size) {
+				report::error_message(
+				  session,
+				  regs,
+				  format(
+				    "Heap-Buffer overflow of {0} bytes in {1} instruction: "
+				    "{c_blue}[{2:x}; {3}]{c_reset}"sv,
+				    access.address + access.size - block.address - block.size,
+				    access.access_name(),
+				    access.address,
+				    access.size));
+				std::cerr << format(" {c_blue}-> Heap block:{c_reset}\n");
+				report::allocation(session, block);
+				return false;
+			}
+
+			/* Info about neighbor blocks */
+			if (err.previous.has_value()) {
+				std::cerr << format(" {c_blue}-> Closest previous "
+				                    "heap block:{c_reset}\n");
+				report::allocation(session, err.previous.value());
+			}
+			if (err.next.has_value()) {
+				std::cerr << format(
+				  " {c_blue}-> Closest next heap block:{c_reset}\n");
+				report::allocation(session, err.next.value());
+			}
+
 			return false;
+		}
 	}
 
 	return true;

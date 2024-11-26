@@ -21,7 +21,7 @@ namespace ctest::mem {
 enum class access_type : uint8_t
 {
 	READ = 0b01,
-	WRITE = 0b11,
+	WRITE = 0b10,
 };
 
 /**

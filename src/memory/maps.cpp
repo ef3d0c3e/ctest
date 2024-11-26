@@ -110,14 +110,16 @@ maps::parse(pid_t pid)
 	fclose(f);
 }
 
-std::optional<std::reference_wrapper<map_entry>>
+std::optional<std::reference_wrapper<const map_entry>>
 maps::get(uintptr_t address)
 {
 	// FIXME: This is not right...
-	auto it = entries.lower_bound(range{ address, address });
-	if (it == entries.begin() || --it == entries.begin())
+	auto it = entries.upper_bound(range{ address, 0 });
+	if (it == entries.begin())
 		return {};
-	if ((--it)->first.end <= address)
+	--it;
+	if (address >= it->first.start && address < it->first.end) {
 		return { it->second };
+	}
 	return {};
 }

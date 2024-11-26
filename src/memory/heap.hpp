@@ -8,7 +8,7 @@
 #include <map>
 #include <optional>
 #include <string_view>
-#include <variant>
+#include <expected>
 #include <vector>
 
 namespace ctest::mem {
@@ -68,6 +68,22 @@ struct heap_block
 	 * @note Will throw if not deallocated yet, check that `freed_rip != 0` before calling this method
 	 */
 	std::string_view deallocated_by() const;
+
+	/**
+	 * @brief Check if all bytes over a range are initialized
+	 *
+	 * @param r The range to check over
+	 *
+	 * @returns true If all bytes in range `r` are initialized
+	 */
+	bool is_initialized(const range& r) const;
+
+	/**
+	 * @brief Set all bytes over a range as initialized
+	 *
+	 * @param r The range to set over
+	 */
+	void set_initialized(const range& r);
 }; // struct heap_block
 
 /**
@@ -77,25 +93,24 @@ struct heap_block
  */
 class heap
 {
-	std::map<uintptr_t, heap_block> blocks;
+	std::map<range, heap_block> blocks;
 
 public:
-	/**
-	 * @brief Successful range result
-	 */
-	using range_result_ok = std::reference_wrapper<heap_block>;
-
-	/**
-	 * @brief Found overflow/underflow
-	 */
-	using range_result_unbounded =
-	  std::tuple<std::reference_wrapper<heap_block>, size_t, size_t>;
-	/**
-	 * @brief Unknown range result, returns closest blocks
-	 */
-	using range_result_unknown =
-	  std::pair<std::optional<std::reference_wrapper<heap_block>>,
-	            std::optional<std::reference_wrapper<heap_block>>>;
+	struct range_error
+	{
+		/**
+		 * @brief The blocks overlapping with address
+		 */
+		std::vector<std::reference_wrapper<const heap_block>> overlapping;
+		/**
+		 * @brief Optional previous@ref heap_block
+		 */
+		std::optional<std::reference_wrapper<const heap_block>> previous;
+		/**
+		 * @brief Optional next @ref heap_block
+		 */
+		std::optional<std::reference_wrapper<const heap_block>> next;
+	};
 
 	/**
 	 * @brief Inserts a new heap block
@@ -119,7 +134,7 @@ public:
 	 *  - @ref range_result_unbounded: If an overflow is detected, with the
 	 * overflow and underflow amout
 	 */
-	std::variant<range_result_ok, range_result_unbounded, range_result_unknown>
+	std::expected<std::reference_wrapper<heap_block>, range_error>
 	get_range(const range& r);
 }; // class heap
 } // namespace ctest::mem

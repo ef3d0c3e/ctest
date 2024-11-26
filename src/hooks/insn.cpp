@@ -151,8 +151,8 @@ ctest::hooks::get_memory_access(const user_regs_struct& regs,
 		  .address = effective_address(op, regs),
 		  .size = op.size,
 		  .access = (mem::access_type)(
-		    (op.access & CS_AC_READ ? (int)mem::access_type::READ : 0) |
-		    (op.access & CS_AC_WRITE ? (int)mem::access_type::WRITE : 0)),
+		    (op.access & CS_AC_READ ? (uint8_t)mem::access_type::READ : 0) |
+		    (op.access & CS_AC_WRITE ? (uint8_t)mem::access_type::WRITE : 0)),
 		});
 	}
 	return access;

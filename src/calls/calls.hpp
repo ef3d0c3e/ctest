@@ -353,7 +353,8 @@ class calls
 	 */
 	uintptr_t current_hook = 0;
 	/**
-	 * @brief Value of RIP before a call hook. Only valid if @ref in_hook was set previously
+	 * @brief Value of RIP before a call hook. Only valid if @ref in_hook was
+	 * set previously
 	 */
 	uintptr_t pc_before_hook;
 
@@ -414,6 +415,9 @@ public:
 	 * RIP + call_length. This method is to be used when the child makes a call
 	 * to a function and you want it to call another function instead (hooking)
 	 *
+	 * This method also updates the @ref pc_before_hook, @ref current_hook and
+	 * @ref in_hook variables.
+	 *
 	 * @param pid Pid of the child
 	 * @param regs Registers of the child (will be modified)
 	 * @param f Function to call
@@ -430,6 +434,7 @@ public:
 
 		static_assert(traits::arg_count == sizeof...(Ts));
 
+		pc_before_hook = regs.rip;
 		current_hook = (uintptr_t)f;
 		in_hook = true;
 
@@ -446,7 +451,6 @@ public:
 		// Set parameters via the registers & stack
 		detail::make_call_impl(
 		  pid, regs, fpregs, std::make_tuple(std::forward<Ts>(ts)...));
-
 
 		regs.rip = current_hook;
 		if (ptrace(PTRACE_SETREGS, pid, 0, &regs) < 0)

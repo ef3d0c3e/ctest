@@ -67,7 +67,7 @@ public:
 	 *
 	 * @returns The @ref map_entry if found
 	 */
-	std::optional<std::reference_wrapper<map_entry>> get(uintptr_t address);
+	std::optional<std::reference_wrapper<const map_entry>> get(uintptr_t address);
 }; // class maps
 } // namespace ctest::mem
 
