@@ -5,7 +5,7 @@ project(ctest
 	VERSION 1.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -Wall -Wextra -pedantic -rdynamic -g3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2b -Wall -Wextra -pedantic -rdynamic -g3 -D_GNU_SOURCE")
 
 # Libfmt
 add_subdirectory(libs/fmt)
