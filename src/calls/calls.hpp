@@ -3,6 +3,7 @@
 
 #include "../exceptions.hpp"
 #include <cstdint>
+#include <set>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/user.h>
@@ -308,6 +309,11 @@ struct function_call
 	 * @brief Length in bytes of the call insruction
 	 */
 	uint16_t call_length;
+
+	/**
+	 * @brief Whether the called function is already being executed
+	 */
+	bool inside;
 }; // struct function_call
 
 /**
@@ -342,6 +348,10 @@ union message_out
  */
 class calls
 {
+	/**
+	 * @brief Set containing all functions that are hooked
+	 */
+	std::set<uintptr_t> pc_hooks;
 	/**
 	 * @brief Indicates that the program is running a call hook, no other call
 	 * hooks should be triggered during that time
@@ -428,7 +438,7 @@ public:
 	void make_call(pid_t pid,
 	               user_regs_struct& regs,
 	               F&& f,
-	               uint16_t call_length,
+	               const function_call& call,
 	               Ts&&... ts)
 	{
 		using traits = detail::function_traits<std::remove_reference_t<F>>;
@@ -445,9 +455,11 @@ public:
 			throw ctest::exception("Failed to get floating point registers");
 
 		// Prepare call
-		const uintptr_t original_rip = regs.rip + call_length;
-		regs.rsp -= sizeof(uintptr_t);
-		ptrace(PTRACE_POKEDATA, pid, (void*)regs.rsp, original_rip);
+		if (call.inside == 0) {
+			const uintptr_t original_rip = regs.rip + call.call_length;
+			regs.rsp -= sizeof(uintptr_t);
+			ptrace(PTRACE_POKEDATA, pid, (void*)regs.rsp, original_rip);
+		}
 
 		// Set parameters via the registers & stack
 		detail::make_call_impl(
@@ -461,6 +473,13 @@ public:
 	}
 
 	/**
+	 * @brief Constructor
+	 *
+	 * Initializes the hooks tables
+	 */
+	calls();
+
+	/**
 	 * @brief Method to checks whether the child is currently running a hook
 	 *
 	 * @returns true If the child is currently in a hook
@@ -468,7 +487,7 @@ public:
 	bool hooked() const { return in_hook; }
 
 	/**
-	 * @brief Process memory access hooks
+	 * @brief Process function hooks
 	 *
 	 * @param session The debugging session
 	 * @param regs Program registers
@@ -480,6 +499,22 @@ public:
 	                                 user_regs_struct& regs,
 	                                 function_call&& call);
 
+	/**
+	 * @brief Process function hooks from the RIP
+	 *
+	 * Whenever a function is called directly, this method will check the RIP in
+	 * order to call a hooked version. It will call @ref process_calls in order
+	 * to achieve this.
+	 *
+	 * @param session The debugging session
+	 * @param regs Program registers
+	 *
+	 * @return 1 On success, 0 on failure
+	 */
+	[[nodiscard]] bool process_from_pc(ctest::session& session,
+	                                   user_regs_struct& regs);
+
+	[[nodiscard]]
 	bool process_messages(ctest::session& session,
 	                      const user_regs_struct& regs);
 }; // class calls

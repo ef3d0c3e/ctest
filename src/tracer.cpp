@@ -32,7 +32,7 @@ tracer::tracer(ctest::session& session)
 		  for (auto&& calls : hooks::get_function_calls(s, regs, insn))
 			  if (!s.calls.process_calls(s, regs, std::move(calls)))
 				  return false;
-		  return true;
+		  return s.calls.process_from_pc(s, regs);
 	  });
 }
 

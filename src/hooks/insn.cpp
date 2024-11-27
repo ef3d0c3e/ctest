@@ -346,7 +346,8 @@ ctest::hooks::get_function_calls(const session& session,
 		const cs_x86_op& op = (insn[0].detail->x86.operands[i]);
 		calls::function_call call{ .addr = effective_address(op, regs),
 			                       .resolved = 0,
-			                       .call_length = insn[0].size };
+			                       .call_length = insn[0].size,
+			                       .inside = false };
 		call.resolved = resolve_calls(session, call.addr);
 		calls.push_back(std::move(call));
 	}

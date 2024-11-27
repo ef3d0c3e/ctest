@@ -1,11 +1,10 @@
 #include "calls.hpp"
-#include "../exceptions.hpp"
 #include "../session.hpp"
 #include "../reporting/report.hpp"
 #include "../colors.hpp"
-#include "fmt/format.h"
 #include <iostream>
 #include <unistd.h>
+#include <malloc.h>
 
 using namespace ctest::calls;
 
@@ -31,6 +30,12 @@ calls::free_hook(ctest::session& session)
 	session.calls.in_hook = false;
 }
 
+calls::calls()
+{
+	pc_hooks.insert((uintptr_t)malloc);
+	pc_hooks.insert((uintptr_t)free);
+}
+
 bool
 calls::process_calls(ctest::session& session,
                      user_regs_struct& regs,
@@ -43,7 +48,7 @@ calls::process_calls(ctest::session& session,
 		make_call(session.child,
 		          regs,
 		          malloc_hook,
-		          call.call_length,
+		          call,
 		          session.child_session);
 	}
 	else if (call.resolved == (uintptr_t)free) {
@@ -75,17 +80,29 @@ calls::process_calls(ctest::session& session,
 				report::allocation(session, block);
 				return false;
 			}
-			block.deallocator = (uintptr_t)free;
-			block.free_pc = pc_before_hook;
 		}
 		msg_in.free.ptr = (uintptr_t)ptr;
 
 		make_call(session.child,
 		          regs,
 		          free_hook,
-		          call.call_length,
+		          call,
 		          session.child_session);
 	}
+	return true;
+}
+
+bool calls::process_from_pc(ctest::session& session,
+	                                   user_regs_struct& regs)
+{
+	const auto it = pc_hooks.find(regs.rip);
+	if (it != pc_hooks.cend())
+		return process_calls(session, regs, function_call{
+				.addr = regs.rip,
+				.resolved = regs.rip,
+				.call_length = 0,
+				.inside = true,
+				});
 	return true;
 }
 
@@ -109,6 +126,10 @@ calls::process_messages(ctest::session& session, const user_regs_struct& regs)
 	if (current_hook == (uintptr_t)free_hook) {
 		// Parse maps in case brk was called
 		session.memory.maps.parse(session.child);
+
+		auto& block = session.memory.heap.get(msg_in.free.ptr).value().get();
+		block.deallocator = (uintptr_t)free;
+		block.free_pc = pc_before_hook;
 }
 	return true;
 }
