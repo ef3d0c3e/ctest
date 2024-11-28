@@ -285,7 +285,6 @@ ctest::hooks::get_function_calls(const session& session,
                                  const user_regs_struct& regs,
                                  const cs_insn* insn)
 {
-	// TODO...
 	auto effective_address =
 	  [](const cs_x86_op& op,
 	     const struct user_regs_struct& regs) -> uintptr_t {
@@ -352,4 +351,15 @@ ctest::hooks::get_function_calls(const session& session,
 		calls.push_back(std::move(call));
 	}
 	return calls;
+}
+
+std::vector<ctest::calls::system_call>
+ctest::hooks::get_system_calls(const session& session,
+                               const user_regs_struct& regs,
+                               const cs_insn* insn)
+{
+	if (insn[0].id != X86_INS_SYSCALL)
+		return {};
+
+	return { calls::system_call{ .id = (long)regs.rax } };
 }

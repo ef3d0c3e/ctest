@@ -5,6 +5,10 @@
 #include <iostream>
 #include <sys/user.h>
 
+#include <dwarf.h>
+#include <elfutils/libdwfl.h>
+#include <elfutils/libdw.h>
+
 using namespace ctest::mem;
 
 std::string_view
@@ -170,6 +174,10 @@ memory::process_access(session& session,
 
 			return false;
 		}
+	}
+	else if (start_map->get().pathname == "[stack]")
+	{
+		// TODO
 	}
 
 	return true;

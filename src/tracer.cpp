@@ -34,6 +34,15 @@ tracer::tracer(ctest::session& session)
 				  return false;
 		  return s.calls.process_from_pc(s, regs);
 	  });
+
+	// System calls
+	insn_hooks.add(
+	  [](ctest::session& s, user_regs_struct& regs, const cs_insn* insn) {
+		  for (auto&& calls : hooks::get_system_calls(s, regs, insn))
+			  if (!s.syscalls.process_syscalls(s, regs, std::move(calls)))
+				  return false;
+		  return true;
+	  });
 }
 
 bool
@@ -73,7 +82,8 @@ tracer::trace()
 {
 	// Set to true when a there is a hook message that needs processing when a
 	// hook finishes
-	bool incoming_message = false;
+	bool incoming_call = false;
+	bool incoming_syscall = false;
 	while (true) {
 		if (ptrace(PTRACE_SINGLESTEP, session.child, 0, 0) < 0)
 			throw exception(
@@ -107,8 +117,12 @@ tracer::trace()
 
 		if (!session.test_data.in_function)
 			continue;
-		if (session.calls.hooked()) {
-			incoming_message = true;
+		else if (session.calls.hooked()) {
+			incoming_call = true;
+			continue;
+		}
+		else if (session.syscalls.hooked()) {
+			incoming_syscall = true;
 			continue;
 		}
 
@@ -117,9 +131,14 @@ tracer::trace()
 			throw exception(
 			  fmt::format("ptrace(GETREGS) failed: {0}", strerror(errno)));
 
-		if (incoming_message) {
-			incoming_message = false;
+		if (incoming_call) {
+			incoming_call = false;
 			if (!session.calls.process_messages(session, regs))
+				break;
+		}
+		else if (incoming_syscall) {
+			incoming_syscall = false;
+			if (!session.syscalls.process_messages(session, regs))
 				break;
 		}
 

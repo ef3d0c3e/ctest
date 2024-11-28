@@ -319,7 +319,7 @@ struct function_call
 /**
  * @brief Messages to the child
  */
-union message_in
+union call_message_in
 {
 	struct
 	{
@@ -328,20 +328,30 @@ union message_in
 
 	struct
 	{
+		size_t size;
+	} calloc;
+
+	struct
+	{
 		uintptr_t ptr;
 	} free;
-};
+}; // union call_message_in
 
 /**
  * @brief Messages from the child
  */
-union message_out
+union call_message_out
 {
 	struct
 	{
 		uintptr_t ptr;
 	} malloc;
-};
+
+	struct
+	{
+		uintptr_t ptr;
+	} calloc;
+}; // union call_message_out
 
 /**
  * @brief Class that handles function calls
@@ -373,15 +383,16 @@ class calls
 	 *
 	 * This is set when the child is entering a call hook
 	 */
-	message_in msg_in;
+	call_message_in msg_in;
 	/**
 	 * @brief Message from the child to the parent
 	 *
 	 * This is read by the parent when a child finishes a call hook
 	 */
-	message_out msg_out;
+	call_message_out msg_out;
 
 	static void* malloc_hook(ctest::session& session);
+	static void* calloc_hook(ctest::session& session);
 	static void free_hook(ctest::session& session);
 
 public:
@@ -491,9 +502,9 @@ public:
 	 *
 	 * @param session The debugging session
 	 * @param regs Program registers
-	 * @param access Memory access
+	 * @param call The call
 	 *
-	 * @return 1 On success, 0 on failure
+	 * @return true On success, false on failure
 	 */
 	[[nodiscard]] bool process_calls(ctest::session& session,
 	                                 user_regs_struct& regs,

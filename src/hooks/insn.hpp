@@ -2,6 +2,7 @@
 #define CTEST_HOOKS_INSN_HPP
 
 #include "../calls/calls.hpp"
+#include "../calls/syscalls.hpp"
 #include "../memory/memory.hpp"
 #include <capstone/capstone.h>
 #include <functional>
@@ -69,6 +70,17 @@ get_memory_access(const user_regs_struct& regs, const cs_insn* insn);
  */
 std::vector<calls::function_call>
 get_function_calls(const session& session, const user_regs_struct& regs, const cs_insn* insn);
+
+/**
+ * @brief Utility for @ref calls::syscalls::process_syscalls
+ *
+ * @param regs The program registers
+ * @param insn The decoded instruction at RIP
+ *
+ * @returns The system calls resulting from the current instruction being executed
+ */
+std::vector<calls::system_call>
+get_system_calls(const session& session, const user_regs_struct& regs, const cs_insn* insn);
 } // namespace ctest::hooks
 
 #endif // CTEST_HOOKS_INSN_HPP

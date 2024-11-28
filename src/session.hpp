@@ -4,6 +4,7 @@
 #include "ctest.h"
 #include "memory/memory.hpp"
 #include "calls/calls.hpp"
+#include "calls/syscalls.hpp"
 #include <capstone/capstone.h>
 #include <condition_variable>
 #include <csetjmp>
@@ -29,6 +30,11 @@ struct session
 	 * @brief The calls system
 	 */
 	calls::calls calls;
+
+	/**
+	 * @brief The syscalls system
+	 */
+	calls::syscalls syscalls;
 	
 
 	/**

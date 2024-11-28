@@ -14,6 +14,8 @@ heap_block::allocated_by() const
 {
 	if (allocator == (uintptr_t)malloc)
 		return std::string_view{ "malloc" };
+	else if (allocator == (uintptr_t)calloc)
+		return std::string_view{ "calloc" };
 	else if (allocator == (uintptr_t)realloc)
 		return std::string_view{ "realloc" };
 	else if (allocator == (uintptr_t)mmap)
