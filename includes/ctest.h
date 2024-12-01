@@ -2,6 +2,7 @@
 #define CTEST_H
 
 #include "result.h"
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -38,8 +39,8 @@ struct ctest_unit
 	/**
 	 * @brief The test function
 	 *
-	 * Not strictly necessary to store here as the function is a linkable symbol, but it makes for
-	 * easier access
+	 * Not strictly necessary to store here as the function is a linkable
+	 * symbol, but it makes for easier access
 	 */
 	const ctest_unit_fn fn;
 	/**
@@ -51,21 +52,22 @@ struct ctest_unit
 #define __CTEST_CONCAT(__X, __Y) __X##__Y
 #define CTEST_CONCAT(__X, __Y) __CTEST_CONCAT(__X, __Y)
 
-#define __CTEST_UNIT(__NAME, __ID, ...)                                                          \
-	int CTEST_CONCAT(CTEST_CONCAT(__ctest_function_, __NAME),                                    \
-	                 __ID)(struct ctest_data * __ctest_data)                                     \
-	{                                                                                            \
-		__ctest_data->in_function = 1;                                                           \
-		{                                                                                        \
-			__VA_ARGS__;                                                                         \
-		}                                                                                        \
-		return 1;                                                                                \
-	}                                                                                            \
-	struct ctest_unit CTEST_CONCAT(CTEST_CONCAT(__ctest_unit_, __NAME), __ID) = {                \
-		.file = __FILE__,                                                                        \
-		.id = __ID,                                                                              \
-		.fn = CTEST_CONCAT(CTEST_CONCAT(__ctest_function_, __NAME), __ID),                       \
-		.flags = CTEST_FLAG_DEFAULT,                                                             \
+#define __CTEST_UNIT(__NAME, __ID, ...)                                        \
+	int CTEST_CONCAT(CTEST_CONCAT(__ctest_function_, __NAME),                  \
+	                 __ID)(struct ctest_data * __ctest_data)                   \
+	{                                                                          \
+		__ctest_data->in_function = 1;                                         \
+		{                                                                      \
+			__VA_ARGS__;                                                       \
+		}                                                                      \
+		return 1;                                                              \
+	}                                                                          \
+	struct ctest_unit CTEST_CONCAT(CTEST_CONCAT(__ctest_unit_, __NAME),        \
+	                               __ID) = {                                   \
+		.file = __FILE__,                                                      \
+		.id = __ID,                                                            \
+		.fn = CTEST_CONCAT(CTEST_CONCAT(__ctest_function_, __NAME), __ID),     \
+		.flags = CTEST_FLAG_DEFAULT,                                           \
 	};
 /**
  * @brief Creates a new test unit
@@ -76,8 +78,8 @@ struct ctest_unit
  * @param __NAME Name (identifier) of the test to create (used for logging)
  * @param ... Content of the test, a scope of C code
  *
- * @note The test name should be a file-unique identifier, expect unreadable error messages
- * otherwise
+ * @note The test name should be a file-unique identifier, expect unreadable
+ * error messages otherwise
  */
 #ifdef CTEST_UNITS_ENABLED
 #define CTEST_UNIT(__NAME, ...) __CTEST_UNIT(__NAME, __COUNTER__, __VA_ARGS__)
@@ -86,12 +88,12 @@ struct ctest_unit
 #endif // CTEST_UNITS_ENABLED
 
 // TODO: Prettify code
-#define __CTEST_LOG(__FILE, __LINE, __MSG, ...)                                                  \
-	dprintf(__ctest_data->message_fd,                                                            \
-	        "In %s at line %d: %s:\n -- BEGIN CODE --\n%s\n -- END CODE --\n",                   \
-	        (__FILE),                                                                            \
-	        (__LINE),                                                                            \
-	        (__MSG),                                                                             \
+#define __CTEST_LOG(__FILE, __LINE, __MSG, ...)                                \
+	dprintf(__ctest_data->message_fd,                                          \
+	        "In %s at line %d: %s:\n -- BEGIN CODE --\n%s\n -- END CODE --\n", \
+	        (__FILE),                                                          \
+	        (__LINE),                                                          \
+	        (__MSG),                                                           \
 	        #__VA_ARGS__);
 
 /**
@@ -100,37 +102,36 @@ struct ctest_unit
  * A sighandler will check for crash signals and then a condition will
  * be used to test if the program did crash.
  */
-/*
-#define CTEST_CRASH(__MSG, ...)                                                                  \
-{                                                                                            \
-__ctest_signal_reset(&__ctest_result->sigdata);                                          \
-const int __ctest_handling = __ctest_result->sigdata.handling;                           \
-__ctest_result->sigdata.handling = 1;                                                    \
-if (!setjmp(__ctest_result->jmp_recover)) {                                              \
-{                                                                                    \
-    __VA_ARGS__;                                                                     \
-}                                                                                    \
-if (!__ctest_signal_crash(&__ctest_result->sigdata)) {                               \
-    __CTEST_LOG(__FILE__, __LINE__, (__MSG), __VA_ARGS__)                            \
-    return 0;                                                                        \
-}                                                                                    \
-}                                                                                        \
-__ctest_result->sigdata.handling = __ctest_handling;                                     \
-__ctest_signal_reset(&__ctest_result->sigdata);                                          \
-}
-*/
+#define CTEST_CRASH(__MSG, ...)                                                \
+	{                                                                          \
+		__ctest_data->sigstatus.signum = 0;                                    \
+		const int __ctest_recover = __ctest_data->sigstatus.recover;           \
+		__ctest_data->sigstatus.recover = 1;                                   \
+		if (!setjmp(__ctest_data->sigstatus.recovery_point)) {                 \
+			{                                                                  \
+				__VA_ARGS__;                                                   \
+			}                                                                  \
+			if (__ctest_data->sigstatus.signum != SIGSEGV) {                   \
+				dprintf(__ctest_data->message_fd,                              \
+				        "CTEST_CRASH(...) assertion failed:\n");               \
+				__CTEST_LOG(__FILE__, __LINE__, (__MSG), __VA_ARGS__)          \
+				return 0;                                                      \
+			}                                                                  \
+		}                                                                      \
+		__ctest_data->sigstatus.recover = __ctest_recover;                     \
+	}
 
 /**
  * @brief Check for an expression value
  *
  * @param __EXPR The expression to check for
  */
-#define CTEST_ASSERT(__EXPR)                                                                     \
-	{                                                                                            \
-		if (!(__EXPR)) {                                                                         \
-			__CTEST_LOG(__FILE__, __LINE__, "Assertion failed", (__EXPR))                        \
-			return 0;                                                                            \
-		}                                                                                        \
+#define CTEST_ASSERT(__EXPR)                                                   \
+	{                                                                          \
+		if (!(__EXPR)) {                                                       \
+			__CTEST_LOG(__FILE__, __LINE__, "Assertion failed", (__EXPR))      \
+			return 0;                                                          \
+		}                                                                      \
 	}
 
 /**
@@ -139,12 +140,12 @@ __ctest_signal_reset(&__ctest_result->sigdata);                                 
  * @param __MSG Custom assertion message
  * @param __EXPR The expression to check for
  */
-#define CTEST_ASSERT_MSG(__MSG, __EXPR)                                                          \
-	{                                                                                            \
-		if (!(__EXPR)) {                                                                         \
-			__CTEST_LOG(__FILE__, __LINE__, (__MSG), (__EXPR))                                   \
-			return 0;                                                                            \
-		}                                                                                        \
+#define CTEST_ASSERT_MSG(__MSG, __EXPR)                                        \
+	{                                                                          \
+		if (!(__EXPR)) {                                                       \
+			__CTEST_LOG(__FILE__, __LINE__, (__MSG), (__EXPR))                 \
+			return 0;                                                          \
+		}                                                                      \
 	}
 
 #ifdef __cplusplus

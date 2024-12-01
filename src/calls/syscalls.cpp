@@ -21,10 +21,18 @@ syscalls::process_syscalls(ctest::session& session,
 	switch (call.id) {
 		case __NR_read: {
 			auto&& [fd, buffer, count] = get_syscall_parameter(regs, read);
+			if (!session.memory.process_access(session, regs, mem::mem_access{(uintptr_t)buffer, count, mem::access_type::WRITE}))
+				return false;
 			msg_in.read.fd = fd;
 			msg_in.read.buffer = (uintptr_t)buffer;
 			msg_in.read.count = count;
 			syscall_detour(session.child, regs, read_hook, session.child_session);
+			break;
+		}
+		case __NR_write: {
+			auto&& [fd, buffer, count] = get_syscall_parameter(regs, write);
+			if (!session.memory.process_access(session, regs, mem::mem_access{(uintptr_t)buffer, count, mem::access_type::READ}))
+				return false;
 			break;
 		}
 		default:

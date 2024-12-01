@@ -3,6 +3,7 @@
 
 #include "../exceptions.hpp"
 #include <cstdint>
+#include <map>
 #include <set>
 #include <sys/ptrace.h>
 #include <sys/types.h>
@@ -362,6 +363,10 @@ class calls
 	 * @brief Set containing all functions that are hooked
 	 */
 	std::set<uintptr_t> pc_hooks;
+	/**
+	 * @brief Map of all syscalls entry function
+	 */
+	std::map<uintptr_t, size_t> syscalls;
 	/**
 	 * @brief Indicates that the program is running a call hook, no other call
 	 * hooks should be triggered during that time

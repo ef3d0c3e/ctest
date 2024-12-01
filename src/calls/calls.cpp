@@ -1,7 +1,9 @@
 #include "calls.hpp"
 #include "../colors.hpp"
+#include "syscalls.hpp"
 #include "../reporting/report.hpp"
 #include "../session.hpp"
+#include <asm/unistd_64.h>
 #include <iostream>
 #include <malloc.h>
 #include <unistd.h>
@@ -50,6 +52,9 @@ calls::calls()
 	pc_hooks.insert((uintptr_t)malloc);
 	pc_hooks.insert((uintptr_t)calloc);
 	pc_hooks.insert((uintptr_t)free);
+
+	syscalls.insert({(uintptr_t)read, __NR_read});
+	syscalls.insert({(uintptr_t)write, __NR_write});
 }
 
 bool
@@ -96,6 +101,12 @@ calls::process_calls(ctest::session& session,
 
 		make_call(session.child, regs, free_hook, call, session.child_session);
 	}
+	
+	// Check for syscalls
+	if (const auto it = syscalls.find(call.resolved); it != syscalls.end())
+		if (!session.syscalls.process_syscalls(session, regs, system_call{it->second}))
+			return false;
+
 	return true;
 }
 

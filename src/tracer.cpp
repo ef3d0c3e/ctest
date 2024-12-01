@@ -5,12 +5,14 @@
 #include "session.hpp"
 #include <capstone/capstone.h>
 #include <csignal>
+#include <cstdio>
 #include <cstdlib>
 #include <fmt/format.h>
 #include <iostream>
 #include <sys/ptrace.h>
 #include <sys/user.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 using namespace ctest;
 
@@ -45,16 +47,18 @@ tracer::tracer(ctest::session& session)
 	  });
 }
 
+void
+tracer::recover(ctest::session& session)
+{
+	if (session.test_data.sigstatus.recover)
+		siglongjmp(session.test_data.sigstatus.recovery_point, 1);
+	else
+		siglongjmp(session.jmp_exit, 1);
+}
+
 bool
 tracer::handle_sigsegv()
 {
-	static auto recover = +[](tracer& tracer) {
-		if (tracer.session.test_data.sigstatus.recover)
-			siglongjmp(tracer.session.test_data.sigstatus.recovery_point, 1);
-		else
-			siglongjmp(tracer.session.jmp_exit, 1);
-	};
-
 	struct user_regs_struct regs;
 	if (ptrace(PTRACE_GETREGS, session.child, 0, &regs) < 0)
 		throw exception(
@@ -70,7 +74,7 @@ tracer::handle_sigsegv()
 	regs.rdi = session.child_session;
 
 	// Set the modified registers
-	if (ptrace(PTRACE_SETREGS, session.child, NULL, regs) < 0)
+	if (ptrace(PTRACE_SETREGS, session.child, NULL, &regs) < 0)
 		throw exception(
 		  fmt::format("ptrace(SETREGS) failed: {0}", strerror(errno)));
 
@@ -105,8 +109,9 @@ tracer::trace()
 		}
 		// Handle signals from child
 		else if (const int signal = WSTOPSIG(status); WIFSTOPPED(status)) {
-			if (signal == SIGSEGV && !handle_sigsegv()) {
-				break;
+			if (signal == SIGSEGV) {
+				if (!handle_sigsegv())
+					break;
 			} else if (signal != SIGTRAP) {
 				std::cerr << fmt::format("Child sent signal {0}, exiting",
 				                         signal)
@@ -115,13 +120,13 @@ tracer::trace()
 			}
 		}
 
-		if (!session.test_data.in_function)
+		if (!session.test_data.in_function ||
+		    session.test_data.sigstatus.recover)
 			continue;
 		else if (session.calls.hooked()) {
 			incoming_call = true;
 			continue;
-		}
-		else if (session.syscalls.hooked()) {
+		} else if (session.syscalls.hooked()) {
 			incoming_syscall = true;
 			continue;
 		}
@@ -135,8 +140,7 @@ tracer::trace()
 			incoming_call = false;
 			if (!session.calls.process_messages(session, regs))
 				break;
-		}
-		else if (incoming_syscall) {
+		} else if (incoming_syscall) {
 			incoming_syscall = false;
 			if (!session.syscalls.process_messages(session, regs))
 				break;
@@ -145,5 +149,14 @@ tracer::trace()
 		// TODO: Force the child to shutdown
 		if (!insn_hooks.process(session, regs))
 			break;
+	}
+
+	// Display the content of the message fd
+	char buf[BUFSIZ];
+	lseek(session.test_data.message_fd, 0, SEEK_SET);
+	ssize_t nread = read(session.test_data.message_fd, buf, BUFSIZ);
+	while (nread > 0) {
+		write(STDOUT_FILENO, buf, nread);
+		nread = read(session.test_data.message_fd, buf, BUFSIZ);
 	}
 }
