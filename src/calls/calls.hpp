@@ -399,6 +399,7 @@ class calls
 	static void* malloc_hook(ctest::session& session);
 	static void* calloc_hook(ctest::session& session);
 	static void free_hook(ctest::session& session);
+	static void noop_hook(ctest::session& session);
 
 public:
 	/**

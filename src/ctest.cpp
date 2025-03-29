@@ -1,5 +1,6 @@
 #include "exceptions.hpp"
 #include "session.hpp"
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
@@ -8,6 +9,7 @@
 #include <format>
 #include <iostream>
 #include <link.h>
+#include <ostream>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>

@@ -4,12 +4,6 @@
 
 using namespace ctest;
 
-/**
- * @brief Prints information about an allocation to stderr
- *
- * @param session The debugging session
- * @param block The heap block to display information about
- */
 void
 ctest::report::allocation(const session& session, const mem::heap_block& block)
 {

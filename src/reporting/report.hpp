@@ -2,6 +2,7 @@
 #define CTEST_REPORTING_REPORT_HPP
 
 #include "../memory/heap.hpp"
+#include "../memory/maps.hpp"
 #include <cstdint>
 #include <string>
 #include <sys/user.h>
@@ -50,6 +51,12 @@ void
 allocation(const session& session, const mem::heap_block& block);
 
 /**
+ * @brief Prints informations about memory map
+ */
+void
+map(const session& session, const mem::map_entry& entry);
+
+/**
  * @brief Prints an error message to stderr
  *
  * @param The debug session
@@ -58,6 +65,18 @@ allocation(const session& session, const mem::heap_block& block);
  */
 void
 error_message(const session& session,
+              const user_regs_struct& regs,
+              std::string what);
+
+/**
+ * @brief Prints an information message to stderr
+ *
+ * @param The debug session
+ * @param regs The registers of the program when the error is created
+ * @param what The formatted information message
+ */
+void
+info_message(const session& session,
               const user_regs_struct& regs,
               std::string what);
 } // namespace ctest::report

@@ -4,9 +4,17 @@
 #include "../reporting/report.hpp"
 #include "../session.hpp"
 #include <asm/unistd_64.h>
+#include <cstdint>
 #include <iostream>
 #include <malloc.h>
 #include <unistd.h>
+
+#include <ctest.h>
+
+extern "C" {
+	void __ctest_dump(const void *var)
+	{}
+}
 
 using namespace ctest::calls;
 
@@ -47,11 +55,20 @@ calls::free_hook(ctest::session& session)
 	session.calls.in_hook = false;
 }
 
+/** @brief Does nothing */
+void
+calls::noop_hook(ctest::session& session)
+{
+	session.calls.in_hook = false;
+}
+
 calls::calls()
 {
 	pc_hooks.insert((uintptr_t)malloc);
 	pc_hooks.insert((uintptr_t)calloc);
 	pc_hooks.insert((uintptr_t)free);
+
+	pc_hooks.insert((uintptr_t)__ctest_dump);
 
 	syscalls.insert({(uintptr_t)read, __NR_read});
 	syscalls.insert({(uintptr_t)write, __NR_write});
@@ -100,6 +117,21 @@ calls::process_calls(ctest::session& session,
 		msg_in.free.ptr = (uintptr_t)ptr;
 
 		make_call(session.child, regs, free_hook, call, session.child_session);
+	} else if (call.resolved == (uintptr_t)__ctest_dump) {
+		auto&& [ptr] = get_call_parameter(session.child, regs, __ctest_dump);
+
+		const auto map = session.memory.maps.get((uintptr_t)ptr);
+		if (map)
+		{
+			const auto block = session.memory.heap.get((uintptr_t)ptr);
+			report::info_message(session, regs, format("Mapped address: {c_blue}{0:x}{c_reset}"sv, (uintptr_t)ptr));
+			report::map(session, map.value().get());
+			if (block)
+				report::allocation(session, block.value().get());
+		}
+		else
+			report::info_message(session, regs, format("Unmapped address: {c_blue}{0:x}{c_reset}"sv, (uintptr_t)ptr));
+		make_call(session.child, regs, noop_hook, call, session.child_session);
 	}
 	
 	// Check for syscalls
